@@ -1510,11 +1510,19 @@ export default function AddJobPage() {
               </CardHeader>
               {servicesExpanded && (
               <CardContent className="p-6 space-y-4">
+                {(() => {
+                  const vehicleType = form.watch("vehicleType");
+                  const selectedSvc = services.find(s => s.id === selectedService);
+                  const vehiclePricing = (selectedSvc?.pricingByVehicleType as any[])?.find(p => p.vehicleType === vehicleType);
+                  const warrantyOptions: any[] = vehiclePricing?.warrantyOptions || [];
+                  const hasWarranty = warrantyOptions.length > 0;
+                  return (
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                  <div className="md:col-span-4 space-y-1.5">
+                  <div className={hasWarranty ? "md:col-span-3 space-y-1.5" : "md:col-span-4 space-y-1.5"}>
                     <label className="text-xs font-bold text-muted-foreground uppercase">Service</label>
                     <Select value={selectedService} onValueChange={(val) => {
                       setSelectedService(val);
+                      setSelectedServiceWarranty("");
                       const svc = services.find(s => s.id === val);
                       if (svc && (svc as any).hsnCode) {
                         setServiceHsn((svc as any).hsnCode);
@@ -1532,6 +1540,23 @@ export default function AddJobPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {hasWarranty && (
+                    <div className="md:col-span-2 space-y-1.5">
+                      <label className="text-xs font-bold text-muted-foreground uppercase">Warranty</label>
+                      <Select value={selectedServiceWarranty} onValueChange={setSelectedServiceWarranty}>
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Select Warranty" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {warrantyOptions.map((opt: any, i: number) => (
+                            <SelectItem key={i} value={opt.warrantyName}>
+                              {opt.warrantyName} — ₹{opt.price}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <div className="md:col-span-3 space-y-1.5">
                     <label className="text-xs font-bold text-muted-foreground uppercase">Technician (Optional)</label>
                     <Select value={selectedTechnician} onValueChange={setSelectedTechnician}>
@@ -1546,7 +1571,7 @@ export default function AddJobPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="md:col-span-3 space-y-1.5">
+                  <div className={hasWarranty ? "md:col-span-2 space-y-1.5" : "md:col-span-3 space-y-1.5"}>
                     <label className="text-xs font-bold text-muted-foreground uppercase">HSN Code</label>
                     <HsnCombobox value={serviceHsn} onChange={setServiceHsn} placeholder="HSN code (search or type)..." />
                   </div>
@@ -1556,6 +1581,8 @@ export default function AddJobPage() {
                     </Button>
                   </div>
                 </div>
+                  );
+                })()}
                 {serviceFields.length > 0 && (
                   <div className="border rounded-md overflow-hidden">
                     <div className="bg-slate-50 p-3 text-xs font-bold uppercase text-slate-500 border-b">Selected Services</div>

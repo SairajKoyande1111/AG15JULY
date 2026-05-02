@@ -130,7 +130,14 @@ function InvoiceItemDetails({ item }: { item: InvoiceItem }) {
             {item.rollUsed && item.rollUsed > 0 && (
               <div className="font-medium text-slate-700">Total Sq.ft Roll Used: {item.rollUsed} sq.ft</div>
             )}
+            {item.warranty && (
+              <div><span className="font-medium text-slate-700">Warranty:</span> {item.warranty}</div>
+            )}
           </>
+        )}
+
+        {item.type === "Service" && item.warranty && (
+          <div><span className="font-medium text-slate-700">Warranty:</span> {item.warranty}</div>
         )}
         
         {item.type === "Accessory" && (
