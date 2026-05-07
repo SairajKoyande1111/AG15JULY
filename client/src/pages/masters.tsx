@@ -810,13 +810,7 @@ export default function MastersPage() {
                 <span className="col-span-1"></span>
               </div>
               {(() => {
-                const dbCodeSet = new Set(hsnCodes.map(h => h.code));
-                const hardcodedOnly = HSN_CODES.filter(h => !dbCodeSet.has(h.code));
-                const allDisplay = [
-                  ...hsnCodes.map(h => ({ ...h, isDb: true })),
-                  ...hardcodedOnly.map(h => ({ id: undefined, code: h.code, description: h.description, isDb: false })),
-                ];
-                const filtered = allDisplay.filter(h =>
+                const filtered = hsnCodes.filter(h =>
                   !hsnSearchQuery ||
                   h.code.includes(hsnSearchQuery) ||
                   h.description?.toLowerCase().includes(hsnSearchQuery.toLowerCase())
@@ -829,8 +823,8 @@ export default function MastersPage() {
                   );
                 }
                 return filtered.map((hsn) => (
-                  <div key={hsn.isDb ? hsn.id : `builtin-${hsn.code}`} className="grid grid-cols-12 gap-4 px-4 py-3 border-b last:border-0 items-center">
-                    {hsn.isDb && editingHsnCode?.id === hsn.id ? (
+                  <div key={hsn.id} className="grid grid-cols-12 gap-4 px-4 py-3 border-b last:border-0 items-center">
+                    {editingHsnCode?.id === hsn.id ? (
                       <>
                         <div className="col-span-3">
                           <Input
@@ -870,32 +864,25 @@ export default function MastersPage() {
                       <>
                         <div className="col-span-3 flex items-center gap-2">
                           <span className="font-mono font-bold text-sm text-red-600">{hsn.code}</span>
-                          {!hsn.isDb && (
-                            <span className="text-[10px] bg-slate-100 text-slate-400 rounded px-1 py-0.5 font-medium">built-in</span>
-                          )}
                         </div>
                         <div className="col-span-8">
                           <span className="text-sm text-slate-700">{hsn.description}</span>
                         </div>
                         <div className="col-span-1 flex gap-1 justify-end">
-                          {hsn.isDb ? (
-                            <>
-                              <Button variant="ghost" size="icon" onClick={() => setEditingHsnCode({ id: hsn.id, code: hsn.code, description: hsn.description || "" })}>
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  if (confirm("Delete this HSN code?")) {
-                                    deleteHsnCodeMutation.mutate(hsn.id!);
-                                  }
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </>
-                          ) : null}
+                          <Button variant="ghost" size="icon" onClick={() => setEditingHsnCode({ id: hsn.id, code: hsn.code, description: hsn.description || "" })}>
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              if (confirm("Delete this HSN code?")) {
+                                deleteHsnCodeMutation.mutate(hsn.id!);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
                         </div>
                       </>
                     )}
