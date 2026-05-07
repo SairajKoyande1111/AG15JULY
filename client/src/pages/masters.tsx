@@ -4,12 +4,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Wrench, Shield, Package, Car, X, Edit2, LayoutGrid, ChevronDown, ChevronUp, Archive, ArrowLeft, History, ArrowUpDown, ArrowUp, ArrowDown, Filter, RotateCcw, Layers, Search, Check } from "lucide-react";
+import { Plus, Trash2, Wrench, Shield, Package, Car, X, Edit2, LayoutGrid, ChevronDown, ChevronUp, Archive, ArrowLeft, History, ArrowUpDown, ArrowUp, ArrowDown, Filter, RotateCcw, Layers, Search, Check, Hash } from "lucide-react";
 import { useState, useEffect } from "react";
 import { HsnCombobox } from "@/components/ui/hsn-combobox";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@shared/routes";
-import { ServiceMaster, VehicleType, PPFMaster, AccessoryMaster, AccessoryCategory, JobCard } from "@shared/schema";
+import { ServiceMaster, VehicleType, PPFMaster, AccessoryMaster, AccessoryCategory, JobCard, HsnCodeMaster } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -58,6 +58,12 @@ export default function MastersPage() {
   const [usedRollSortDir, setUsedRollSortDir] = useState<"asc" | "desc">("asc");
   const [usedRollFilterPPF, setUsedRollFilterPPF] = useState("all");
 
+  // HSN Code state
+  const [isAddHsnCodeOpen, setIsAddHsnCodeOpen] = useState(false);
+  const [editingHsnCode, setEditingHsnCode] = useState<HsnCodeMaster | null>(null);
+  const [hsnSearchQuery, setHsnSearchQuery] = useState("");
+  const [newHsnCode, setNewHsnCode] = useState({ code: "", description: "" });
+
   const goToUsedRolls = () => { setShowUsedRolls(true); setShowRollHistory(false); };
   const goToRollHistory = () => { setShowRollHistory(true); setShowUsedRolls(false); };
   const goBackToPPF = () => { setShowUsedRolls(false); setShowRollHistory(false); };
@@ -89,6 +95,10 @@ export default function MastersPage() {
 
   const { data: accessoryCategories = [] } = useQuery<AccessoryCategory[]>({
     queryKey: [api.masters.accessories.categories.list.path],
+  });
+
+  const { data: hsnCodes = [] } = useQuery<HsnCodeMaster[]>({
+    queryKey: [api.masters.hsnCodes.list.path],
   });
 
   const categoryNames = accessoryCategories.map(c => c.name);
@@ -145,6 +155,35 @@ export default function MastersPage() {
     },
   });
 
+  const createHsnCodeMutation = useMutation({
+    mutationFn: (data: { code: string; description: string }) =>
+      apiRequest("POST", api.masters.hsnCodes.create.path, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.masters.hsnCodes.list.path] });
+      toast({ title: "Success", description: "HSN Code added successfully" });
+      setNewHsnCode({ code: "", description: "" });
+      setIsAddHsnCodeOpen(false);
+    },
+  });
+
+  const updateHsnCodeMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { code: string; description: string } }) =>
+      apiRequest("PATCH", `/api/masters/hsn-codes/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.masters.hsnCodes.list.path] });
+      toast({ title: "Success", description: "HSN Code updated successfully" });
+      setEditingHsnCode(null);
+    },
+  });
+
+  const deleteHsnCodeMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/masters/hsn-codes/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.masters.hsnCodes.list.path] });
+      toast({ title: "Success", description: "HSN Code deleted successfully" });
+    },
+  });
+
   return (
     <Layout>
       <div className="p-6 space-y-6">
@@ -160,7 +199,7 @@ export default function MastersPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setShowUsedRolls(false); setShowRollHistory(false); }} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8">
+          <TabsList className="grid w-full grid-cols-4 mb-8">
             <TabsTrigger value="service" className="flex items-center gap-2">
               <Wrench className="h-4 w-4" />
               Service Master
@@ -172,6 +211,10 @@ export default function MastersPage() {
             <TabsTrigger value="accessories" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
               Accessories Master
+            </TabsTrigger>
+            <TabsTrigger value="hsncodes" className="flex items-center gap-2">
+              <Hash className="h-4 w-4" />
+              HSN Codes
             </TabsTrigger>
           </TabsList>
 
@@ -706,6 +749,143 @@ export default function MastersPage() {
                 )}
               </DialogContent>
             </Dialog>
+          </TabsContent>
+
+          {/* HSN Codes Tab */}
+          <TabsContent value="hsncodes" className="space-y-6">
+            <div className="flex flex-col md:flex-row gap-3 md:items-center">
+              <div className="flex-1">
+                <Input
+                  placeholder="Search HSN codes by code or description..."
+                  value={hsnSearchQuery}
+                  onChange={(e) => setHsnSearchQuery(e.target.value)}
+                  className="h-11"
+                />
+              </div>
+              <Dialog open={isAddHsnCodeOpen} onOpenChange={setIsAddHsnCodeOpen}>
+                <DialogTrigger asChild>
+                  <Button className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    Add HSN Code
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New HSN Code</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-2">
+                    <div className="space-y-1.5">
+                      <Label>HSN Code *</Label>
+                      <Input
+                        placeholder="e.g. 998713"
+                        value={newHsnCode.code}
+                        onChange={(e) => setNewHsnCode(prev => ({ ...prev, code: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Description *</Label>
+                      <Input
+                        placeholder="e.g. PPF Installation / Ceramic Coating"
+                        value={newHsnCode.description}
+                        onChange={(e) => setNewHsnCode(prev => ({ ...prev, description: e.target.value }))}
+                      />
+                    </div>
+                    <Button
+                      className="w-full"
+                      disabled={!newHsnCode.code.trim() || !newHsnCode.description.trim() || createHsnCodeMutation.isPending}
+                      onClick={() => createHsnCodeMutation.mutate({ code: newHsnCode.code.trim(), description: newHsnCode.description.trim() })}
+                    >
+                      {createHsnCodeMutation.isPending ? "Adding..." : "Add HSN Code"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            <div className="border rounded-md overflow-hidden">
+              <div className="bg-slate-50 px-4 py-3 text-xs font-bold uppercase text-slate-500 border-b grid grid-cols-12 gap-4">
+                <span className="col-span-3">HSN Code</span>
+                <span className="col-span-8">Description</span>
+                <span className="col-span-1"></span>
+              </div>
+              {hsnCodes
+                .filter(h =>
+                  !hsnSearchQuery ||
+                  h.code.includes(hsnSearchQuery) ||
+                  h.description?.toLowerCase().includes(hsnSearchQuery.toLowerCase())
+                )
+                .map((hsn) => (
+                  <div key={hsn.id} className="grid grid-cols-12 gap-4 px-4 py-3 border-b last:border-0 items-center">
+                    {editingHsnCode?.id === hsn.id ? (
+                      <>
+                        <div className="col-span-3">
+                          <Input
+                            value={editingHsnCode.code}
+                            onChange={(e) => setEditingHsnCode(prev => prev ? ({ ...prev, code: e.target.value }) : null)}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="col-span-7">
+                          <Input
+                            value={editingHsnCode.description}
+                            onChange={(e) => setEditingHsnCode(prev => prev ? ({ ...prev, description: e.target.value }) : null)}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="col-span-2 flex gap-1 justify-end">
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              if (editingHsnCode.id) {
+                                updateHsnCodeMutation.mutate({
+                                  id: editingHsnCode.id,
+                                  data: { code: editingHsnCode.code, description: editingHsnCode.description }
+                                });
+                              }
+                            }}
+                            disabled={updateHsnCodeMutation.isPending}
+                          >
+                            Save
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setEditingHsnCode(null)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="col-span-3">
+                          <span className="font-mono font-bold text-sm text-red-600">{hsn.code}</span>
+                        </div>
+                        <div className="col-span-8">
+                          <span className="text-sm text-slate-700">{hsn.description}</span>
+                        </div>
+                        <div className="col-span-1 flex gap-1 justify-end">
+                          <Button variant="ghost" size="icon" onClick={() => setEditingHsnCode(hsn)}>
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              if (confirm("Delete this HSN code?")) {
+                                deleteHsnCodeMutation.mutate(hsn.id!);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              {hsnCodes.length === 0 && (
+                <div className="px-4 py-8 text-center text-muted-foreground text-sm">
+                  No HSN codes yet. Click "Add HSN Code" to get started.
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </div>

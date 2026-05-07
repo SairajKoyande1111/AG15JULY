@@ -198,12 +198,24 @@ export const jobCardItemSchema = z.object({
   hsnCode: z.string().optional().default(""),
 });
 
+// HSN Code Master Schemas
+export const hsnCodeMasterSchema = z.object({
+  id: z.string().optional(),
+  code: z.string().min(1),
+  description: z.string().min(1),
+});
+
+export type HsnCodeMaster = z.infer<typeof hsnCodeMasterSchema>;
+export const insertHsnCodeMasterSchema = hsnCodeMasterSchema.omit({ id: true });
+export type InsertHsnCodeMaster = z.infer<typeof insertHsnCodeMasterSchema>;
+
 export const jobCardSchema = z.object({
   id: z.string().optional(),
   jobNo: z.string(),
   customerName: z.string().min(1),
   phoneNumber: z.string(),
   emailAddress: z.string().optional(),
+  gstNumber: z.string().optional().default(""),
   referralSource: z.string(),
   referrerName: z.string().optional(),
   referrerPhone: z.string().optional(),
@@ -269,6 +281,7 @@ export const invoiceSchema = z.object({
   customerName: z.string(),
   phoneNumber: z.string(),
   emailAddress: z.string().optional(),
+  customerGstNumber: z.string().optional().default(""),
   vehicleInfo: z.string().optional(),
   vehicleMake: z.string().optional(),
   vehicleModel: z.string().optional(),

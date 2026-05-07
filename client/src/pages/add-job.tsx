@@ -576,6 +576,10 @@ export default function AddJobPage() {
   const [serviceHsn, setServiceHsn] = useState("");
   const [ppfHsn, setPpfHsn] = useState("");
   const [accessoryHsn, setAccessoryHsn] = useState("");
+  const [hasGst, setHasGst] = useState(false);
+  const [gstNumber, setGstNumber] = useState("");
+  const [ppfTouchupMode, setPpfTouchupMode] = useState(false);
+  const [ppfTouchupPrice, setPpfTouchupPrice] = useState(0);
 
   useEffect(() => {
     if (selectedPPF) {
@@ -722,7 +726,7 @@ export default function AddJobPage() {
     const vehiclePricing = p?.pricingByVehicleType.find(v => v.vehicleType === vehicleType);
     const option = vehiclePricing?.options.find(o => o.warrantyName === selectedWarranty);
     
-    if (p && selectedWarranty) {
+    if (p && (selectedWarranty || ppfTouchupMode)) {
       console.log('=== Adding PPF Roll ===');
       console.log('Selected PPF:', p);
       console.log('Selected Warranty:', selectedWarranty);
@@ -767,7 +771,11 @@ export default function AddJobPage() {
           });
         }
 
-        let updatedName = `${p.name} (${vehicleType} - ${selectedWarranty})`;
+        const effectivePrice = ppfTouchupMode ? ppfTouchupPrice : (option?.price || 0);
+        const effectiveWarranty = ppfTouchupMode ? "Touchup" : selectedWarranty;
+        let updatedName = ppfTouchupMode
+          ? `${p.name} (Touchup)`
+          : `${p.name} (${vehicleType} - ${selectedWarranty})`;
         const newRollDesc = `Quantity: ${rollQty}sqft (from ${roll?.name || 'Unknown Roll'})`;
         
         // Robust multi-line name parsing and rebuilding
@@ -795,16 +803,21 @@ export default function AddJobPage() {
           rollUsed: newRollUsed > 0 ? newRollUsed : undefined,
           rollsUsed: rollsUsed,
           name: updatedName,
-          warranty: selectedWarranty,
+          warranty: effectiveWarranty,
           technician: tech?.name || existingField.technician,
-          price: option?.price || 0,
+          price: effectivePrice,
           hsnCode: ppfHsn || existingField.hsnCode || ""
         };
         form.setValue("ppfs", currentPPFs);
       } else {
+        const effectivePrice = ppfTouchupMode ? ppfTouchupPrice : (option?.price || 0);
+        const effectiveWarranty = ppfTouchupMode ? "Touchup" : selectedWarranty;
+        const entryName = ppfTouchupMode
+          ? `${p.name} (Touchup)\nQuantity: ${rollQty}sqft (from ${roll?.name || 'Unknown Roll'})`
+          : `${p.name} (${vehicleType} - ${selectedWarranty})\nQuantity: ${rollQty}sqft (from ${roll?.name || 'Unknown Roll'})`;
         appendPPF({ 
           ppfId: p.id!, 
-          name: `${p.name} (${vehicleType} - ${selectedWarranty})\nQuantity: ${rollQty}sqft (from ${roll?.name || 'Unknown Roll'})`,
+          name: entryName,
           rollId: selectedPPFRoll,
           rollName: roll?.name || "Unknown Roll",
           rollUsed: rollQty > 0 ? rollQty : undefined,
@@ -813,9 +826,9 @@ export default function AddJobPage() {
             rollName: roll?.name || "Unknown Roll",
             rollUsed: rollQty || 0
           }],
-          price: option?.price || 0,
+          price: effectivePrice,
           technician: tech?.name,
-          warranty: selectedWarranty,
+          warranty: effectiveWarranty,
           hsnCode: ppfHsn || ""
         } as any);
       }
@@ -825,6 +838,10 @@ export default function AddJobPage() {
       setRollQty(0);
       setPpfHsn("");
       setSelectedTechnician("");
+      if (ppfTouchupMode) {
+        setPpfTouchupMode(false);
+        setPpfTouchupPrice(0);
+      }
     }
   };
 
@@ -935,6 +952,7 @@ export default function AddJobPage() {
       
       const payload = {
         ...data,
+        gstNumber: hasGst ? gstNumber : "",
         estimatedCost: totalEstimatedCost,
         status: jobToEdit?.status || "Pending",
         autoGammaDiscount: discountSplit.autoGamma,
@@ -1221,6 +1239,31 @@ export default function AddJobPage() {
                     </FormItem>
                   )}
                 />
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="hasGst"
+                      checked={hasGst}
+                      onChange={(e) => {
+                        setHasGst(e.target.checked);
+                        if (!e.target.checked) setGstNumber("");
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-red-600"
+                    />
+                    <label htmlFor="hasGst" className="text-sm font-semibold text-slate-700 cursor-pointer">
+                      Customer has GST number
+                    </label>
+                  </div>
+                  {hasGst && (
+                    <Input
+                      placeholder="Enter GST number (e.g. 27AAPFU0939F1ZV)"
+                      value={gstNumber}
+                      onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
+                      className="h-11"
+                    />
+                  )}
+                </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <FormField
                     control={form.control}
@@ -1641,19 +1684,49 @@ export default function AddJobPage() {
                     </Select>
                   </div>
                   <div className="md:col-span-3 space-y-1.5">
-                    <label className="text-xs font-bold text-muted-foreground uppercase">Warranty</label>
-                    <Select value={selectedWarranty} onValueChange={setSelectedWarranty} disabled={!selectedPPF || !form.watch("vehicleType")}>
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder="Select Warranty" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {currentPPF?.pricingByVehicleType
-                          ?.find(v => v.vehicleType === form.watch("vehicleType"))
-                          ?.options.map(o => (
-                            <SelectItem key={o.warrantyName} value={o.warrantyName}>{o.warrantyName}</SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-muted-foreground uppercase">
+                        {ppfTouchupMode ? "Touchup Price (₹)" : "Warranty"}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPpfTouchupMode(!ppfTouchupMode);
+                          setSelectedWarranty("");
+                          setPpfTouchupPrice(0);
+                        }}
+                        className={`text-xs font-semibold px-2 py-0.5 rounded-full transition-colors ${ppfTouchupMode ? "bg-orange-100 text-orange-700 hover:bg-orange-200" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
+                      >
+                        {ppfTouchupMode ? "✓ Touchup" : "Touchup?"}
+                      </button>
+                    </div>
+                    {ppfTouchupMode ? (
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={ppfTouchupPrice || ""}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9.]/g, '');
+                          setPpfTouchupPrice(parseFloat(value) || 0);
+                        }}
+                        placeholder="Enter custom price"
+                        className="h-11"
+                        disabled={!selectedPPF}
+                      />
+                    ) : (
+                      <Select value={selectedWarranty} onValueChange={setSelectedWarranty} disabled={!selectedPPF || !form.watch("vehicleType")}>
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Select Warranty" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currentPPF?.pricingByVehicleType
+                            ?.find(v => v.vehicleType === form.watch("vehicleType"))
+                            ?.options.map(o => (
+                              <SelectItem key={o.warrantyName} value={o.warrantyName}>{o.warrantyName}</SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                   <div className="md:col-span-2 space-y-1.5">
                     <label className="text-xs font-bold text-muted-foreground uppercase">Select Roll</label>

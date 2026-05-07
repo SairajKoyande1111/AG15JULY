@@ -14,7 +14,9 @@ import {
   technicianSchema,
   insertTechnicianSchema,
   appointmentSchema,
-  insertAppointmentSchema
+  insertAppointmentSchema,
+  hsnCodeMasterSchema,
+  insertHsnCodeMasterSchema,
 } from "./schema";
 
 export const api = {
@@ -205,6 +207,30 @@ export const api = {
           200: z.void(),
           404: z.object({ message: z.string() }),
         },
+      },
+    },
+    hsnCodes: {
+      list: {
+        method: "GET" as const,
+        path: "/api/masters/hsn-codes",
+        responses: { 200: z.array(hsnCodeMasterSchema) },
+      },
+      create: {
+        method: "POST" as const,
+        path: "/api/masters/hsn-codes",
+        input: insertHsnCodeMasterSchema,
+        responses: { 201: hsnCodeMasterSchema },
+      },
+      update: {
+        method: "PATCH" as const,
+        path: "/api/masters/hsn-codes/:id",
+        input: hsnCodeMasterSchema.partial(),
+        responses: { 200: hsnCodeMasterSchema, 404: z.object({ message: z.string() }) },
+      },
+      delete: {
+        method: "DELETE" as const,
+        path: "/api/masters/hsn-codes/:id",
+        responses: { 200: z.void(), 404: z.object({ message: z.string() }) },
       },
     },
   },

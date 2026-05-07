@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { api } from "@shared/routes";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 
 export const HSN_CODES = [
   { code: "998713", description: "PPF Installation / Ceramic Coating / Car Detailing / Paint Correction / Denting & Painting" },
@@ -35,6 +38,18 @@ export function HsnCombobox({
   const [search, setSearch] = useState(value);
   const wrapRef = useRef<HTMLDivElement>(null);
 
+  const { data: dbCodes = [] } = useQuery<{ id: string; code: string; description: string }[]>({
+    queryKey: [api.masters.hsnCodes.list.path],
+  });
+
+  const addMutation = useMutation({
+    mutationFn: (data: { code: string; description: string }) =>
+      apiRequest("POST", api.masters.hsnCodes.create.path, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.masters.hsnCodes.list.path] });
+    },
+  });
+
   useEffect(() => { setSearch(value); }, [value]);
 
   useEffect(() => {
@@ -45,9 +60,30 @@ export function HsnCombobox({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const filtered = HSN_CODES.filter(h =>
+  const dbCodeSet = new Set(dbCodes.map(c => c.code));
+  const allCodes = [
+    ...dbCodes,
+    ...HSN_CODES.filter(h => !dbCodeSet.has(h.code)),
+  ];
+
+  const filtered = allCodes.filter(h =>
     !search || h.code.includes(search) || h.description.toLowerCase().includes(search.toLowerCase())
   );
+
+  const exactMatch = allCodes.some(h => h.code === search);
+  const showAddNew = search.length >= 2 && !exactMatch;
+
+  const handleAddNew = () => {
+    const description = prompt(`Enter description for HSN code "${search}":`, "");
+    if (description && description.trim()) {
+      addMutation.mutate({ code: search.trim(), description: description.trim() }, {
+        onSuccess: () => {
+          onChange(search.trim());
+          setOpen(false);
+        }
+      });
+    }
+  };
 
   return (
     <div ref={wrapRef} className="relative">
@@ -59,7 +95,7 @@ export function HsnCombobox({
         onClick={() => setOpen(true)}
         onChange={e => { setSearch(e.target.value); onChange(e.target.value); setOpen(true); }}
       />
-      {open && filtered.length > 0 && (
+      {open && (filtered.length > 0 || showAddNew) && (
         <div className="absolute left-0 top-full mt-1 z-[9999] bg-white border border-border rounded-lg shadow-2xl max-h-52 overflow-y-auto min-w-[320px] w-full">
           {filtered.map(h => (
             <button
@@ -74,6 +110,15 @@ export function HsnCombobox({
               </div>
             </button>
           ))}
+          {showAddNew && (
+            <button
+              type="button"
+              className="w-full text-left px-3 py-2 hover:bg-red-50 transition-colors text-red-600 font-semibold text-xs flex items-center gap-1"
+              onMouseDown={e => { e.preventDefault(); handleAddNew(); }}
+            >
+              + Add "{search}" as new HSN code
+            </button>
+          )}
         </div>
       )}
     </div>

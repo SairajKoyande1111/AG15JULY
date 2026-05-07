@@ -285,6 +285,39 @@ app.use((req, res, next) => {
     res.json({ message: "Accessory deleted" });
   });
 
+  // HSN Code Routes
+  app.get("/api/masters/hsn-codes", async (req, res) => {
+    const codes = await storage.getHsnCodes();
+    res.json(codes);
+  });
+
+  app.post("/api/masters/hsn-codes", async (req, res) => {
+    try {
+      const { code, description } = req.body;
+      if (!code || !description) return res.status(400).json({ message: "code and description are required" });
+      const created = await storage.createHsnCode({ code, description });
+      res.status(201).json(created);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid input or duplicate code" });
+    }
+  });
+
+  app.patch("/api/masters/hsn-codes/:id", async (req, res) => {
+    try {
+      const updated = await storage.updateHsnCode(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ message: "HSN Code not found" });
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid input" });
+    }
+  });
+
+  app.delete("/api/masters/hsn-codes/:id", async (req, res) => {
+    const success = await storage.deleteHsnCode(req.params.id);
+    if (!success) return res.status(404).json({ message: "HSN Code not found" });
+    res.json({ message: "HSN Code deleted" });
+  });
+
   app.get(api.masters.vehicleTypes.list.path, async (req, res) => {
     const types = await storage.getVehicleTypes();
     res.json(types);

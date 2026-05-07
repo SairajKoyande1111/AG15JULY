@@ -150,6 +150,13 @@ const inquiryMongoSchema = new mongoose.Schema({
 
 export const InquiryModel = mongoose.model("Inquiry", inquiryMongoSchema);
 
+const hsnCodeMongoSchema = new mongoose.Schema({
+  code: { type: String, required: true, unique: true },
+  description: { type: String, required: true },
+});
+
+export const HsnCodeModel = mongoose.model("HsnCode", hsnCodeMongoSchema);
+
 const jobCardMongoSchema = new mongoose.Schema({
   jobNo: { type: String, required: true, unique: true },
   customerName: { type: String, required: true },
@@ -178,6 +185,7 @@ const jobCardMongoSchema = new mongoose.Schema({
   estimatedCost: { type: Number, required: true },
   technician: { type: String },
   vehicleType: { type: String },
+  gstNumber: { type: String, default: "" },
   isPaid: { type: Boolean, default: false },
   payments: [{
     amount: Number,
@@ -220,6 +228,7 @@ const invoiceMongoSchema = new mongoose.Schema({
   gstAmount: { type: Number, required: true },
   totalAmount: { type: Number, required: true },
   date: { type: String, required: true },
+  customerGstNumber: { type: String, default: "" },
   isPaid: { type: Boolean, default: false },
   paymentMethod: { type: String },
   paymentDate: { type: String },
@@ -366,6 +375,12 @@ export interface IStorage {
   // Old Customers
   getOldCustomers(page: number, limit: number): Promise<{ customers: any[], total: number }>;
   createOldCustomer(customer: any): Promise<any>;
+
+  // HSN Codes
+  getHsnCodes(): Promise<{ id: string; code: string; description: string }[]>;
+  createHsnCode(data: { code: string; description: string }): Promise<{ id: string; code: string; description: string }>;
+  updateHsnCode(id: string, data: { code?: string; description?: string }): Promise<{ id: string; code: string; description: string } | undefined>;
+  deleteHsnCode(id: string): Promise<boolean>;
 
   // Vendor Management
   getVendors(): Promise<Vendor[]>;
@@ -655,6 +670,28 @@ export class MongoStorage implements IStorage {
 
   async deleteAccessoryCategory(id: string): Promise<boolean> {
     const result = await AccessoryCategoryModel.findByIdAndDelete(id);
+    return !!result;
+  }
+
+  async getHsnCodes(): Promise<{ id: string; code: string; description: string }[]> {
+    const codes = await HsnCodeModel.find().sort({ code: 1 });
+    return codes.map(c => ({ id: c._id.toString(), code: c.code, description: c.description }));
+  }
+
+  async createHsnCode(data: { code: string; description: string }): Promise<{ id: string; code: string; description: string }> {
+    const c = new HsnCodeModel(data);
+    await c.save();
+    return { id: c._id.toString(), code: c.code, description: c.description };
+  }
+
+  async updateHsnCode(id: string, data: { code?: string; description?: string }): Promise<{ id: string; code: string; description: string } | undefined> {
+    const c = await HsnCodeModel.findByIdAndUpdate(id, data, { new: true });
+    if (!c) return undefined;
+    return { id: c._id.toString(), code: c.code, description: c.description };
+  }
+
+  async deleteHsnCode(id: string): Promise<boolean> {
+    const result = await HsnCodeModel.findByIdAndDelete(id);
     return !!result;
   }
 
@@ -1040,6 +1077,7 @@ export class MongoStorage implements IStorage {
           customerName: j.customerName,
           phoneNumber: j.phoneNumber,
           emailAddress: j.emailAddress,
+          customerGstNumber: (j as any).gstNumber || "",
           vehicleInfo: `${j.year || "NA"} ${j.make} ${j.model}`,
           vehicleMake: j.make,
           vehicleModel: j.model,

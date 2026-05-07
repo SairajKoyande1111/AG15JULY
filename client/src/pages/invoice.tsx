@@ -179,6 +179,9 @@ function PrintableInvoice({ invoice }: { invoice: Invoice }) {
           <p className="text-xl font-bold text-slate-900">{invoice.customerName}</p>
           <p className="text-slate-600">{invoice.phoneNumber}</p>
           {invoice.emailAddress && <p className="text-slate-600">{invoice.emailAddress}</p>}
+          {(invoice as any).customerGstNumber && (
+            <p className="text-slate-600 text-sm"><span className="font-semibold">GST:</span> {(invoice as any).customerGstNumber}</p>
+          )}
           {invoice.payments && invoice.payments.length > 0 && (
             <div className="mt-4 pt-4 border-t border-slate-200">
               <p className="text-xs font-bold text-green-600 uppercase tracking-widest">Payment Status</p>
