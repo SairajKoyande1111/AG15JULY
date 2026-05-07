@@ -8,11 +8,43 @@ import { connectDB } from "./db";
 import mongoose from "mongoose";
 import cookieParser from "cookie-parser";
 
+const BUILT_IN_HSN_CODES = [
+  { code: "998713", description: "PPF Installation / Ceramic Coating / Car Detailing / Paint Correction / Denting & Painting" },
+  { code: "998538", description: "Car Wash / Cleaning / Interior Cleaning" },
+  { code: "3919",   description: "PPF Film (Supply / Sale)" },
+  { code: "3824",   description: "Ceramic Coating Liquid" },
+  { code: "3405",   description: "Car Polish / Rubbing Compound" },
+  { code: "3402",   description: "Car Shampoo" },
+  { code: "6307",   description: "Microfiber Cloth" },
+  { code: "9603",   description: "Detailing Brush" },
+  { code: "87089900", description: "Seat Covers / Car Mats / Steering Cover / Body Kit / Roof Rails / Door Visor / Spoiler" },
+  { code: "94049099", description: "Car Neck Cushion" },
+  { code: "85198100", description: "Car Audio System / Music System" },
+  { code: "852859",  description: "Android CarPlay System" },
+  { code: "852580",  description: "Dash Camera" },
+  { code: "8708",    description: "General Motor Vehicle Parts" },
+  { code: "851810",  description: "Speaker / Subwoofer / Amplifier" },
+  { code: "85122020", description: "LED Headlights / Fog Lamps / LED Light Bar" },
+  { code: "94054090", description: "Ambient Light" },
+  { code: "33030090", description: "Perfumes / Fragrance / Car Perfume" },
+];
+
+async function seedHsnCodes() {
+  const existing = await storage.getHsnCodes();
+  const existingCodes = new Set(existing.map(h => h.code));
+  for (const item of BUILT_IN_HSN_CODES) {
+    if (!existingCodes.has(item.code)) {
+      await storage.createHsnCode(item);
+    }
+  }
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express,
 ): Promise<Server> {
   await connectDB();
+  await seedHsnCodes();
 
   app.use(cookieParser());
 
