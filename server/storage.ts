@@ -2400,8 +2400,8 @@ export class MongoStorage implements IStorage {
   }
 
   async createVendorPurchase(purchase: InsertVendorPurchase): Promise<VendorPurchase> {
-    const total = purchase.items.reduce((sum, item) => sum + item.quantity * (item.unitPrice || 0), 0);
-    const sellingTotal = purchase.items.reduce((sum, item) => sum + item.quantity * ((item as any).sellingPrice || 0), 0);
+    const total = purchase.items.reduce((sum, item) => sum + (item.unitPrice || 0), 0);
+    const sellingTotal = purchase.items.reduce((sum, item) => sum + ((item as any).sellingPrice || 0), 0);
     const p = new VendorPurchaseModel({ ...purchase, totalAmount: total, sellingTotal, createdAt: new Date().toISOString() });
     await p.save();
     return { ...p.toObject(), id: p._id.toString() } as VendorPurchase;
@@ -2409,8 +2409,8 @@ export class MongoStorage implements IStorage {
 
   async updateVendorPurchase(id: string, purchase: Partial<InsertVendorPurchase>): Promise<VendorPurchase | undefined> {
     if (purchase.items) {
-      (purchase as any).totalAmount = purchase.items.reduce((sum, item) => sum + item.quantity * (item.unitPrice || 0), 0);
-      (purchase as any).sellingTotal = purchase.items.reduce((sum, item) => sum + item.quantity * ((item as any).sellingPrice || 0), 0);
+      (purchase as any).totalAmount = purchase.items.reduce((sum, item) => sum + (item.unitPrice || 0), 0);
+      (purchase as any).sellingTotal = purchase.items.reduce((sum, item) => sum + ((item as any).sellingPrice || 0), 0);
     }
     const p = await VendorPurchaseModel.findByIdAndUpdate(id, purchase, { new: true });
     if (!p) return undefined;
