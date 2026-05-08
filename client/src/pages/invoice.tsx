@@ -361,8 +361,8 @@ export default function InvoicePage() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [businessFilter, setBusinessFilter] = useState<string>("all");
-  const [periodFilter, setPeriodFilter] = useState<"all" | "day" | "week" | "month">("all");
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
   const [sortConfig, setSortConfig] = useState<{ key: keyof Invoice; direction: 'asc' | 'desc' } | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showPaymentDialog, setShowViewPaymentDialog] = useState(false);
@@ -473,30 +473,17 @@ export default function InvoicePage() {
       result = result.filter(inv => inv.business === businessFilter);
     }
 
-    // Period Filter
-    if (periodFilter !== "all" && selectedDate) {
-      const anchor = new Date(selectedDate);
-      anchor.setHours(0, 0, 0, 0);
-
+    // Date Range Filter
+    if (fromDate) {
       result = result.filter(inv => {
         if (!inv.date) return false;
-        const invDate = new Date(inv.date);
-        invDate.setHours(0, 0, 0, 0);
-
-        if (periodFilter === "day") {
-          return invDate.getTime() === anchor.getTime();
-        }
-        if (periodFilter === "week") {
-          const weekStart = new Date(anchor);
-          weekStart.setDate(anchor.getDate() - anchor.getDay());
-          const weekEnd = new Date(weekStart);
-          weekEnd.setDate(weekStart.getDate() + 6);
-          return invDate >= weekStart && invDate <= weekEnd;
-        }
-        if (periodFilter === "month") {
-          return invDate.getFullYear() === anchor.getFullYear() && invDate.getMonth() === anchor.getMonth();
-        }
-        return true;
+        return inv.date.substring(0, 10) >= fromDate;
+      });
+    }
+    if (toDate) {
+      result = result.filter(inv => {
+        if (!inv.date) return false;
+        return inv.date.substring(0, 10) <= toDate;
       });
     }
 
@@ -513,7 +500,7 @@ export default function InvoicePage() {
     }
 
     return result;
-  }, [invoices, searchTerm, businessFilter, periodFilter, selectedDate, sortConfig]);
+  }, [invoices, searchTerm, businessFilter, fromDate, toDate, sortConfig]);
 
   const handleSort = (key: keyof Invoice) => {
     setSortConfig(prev => {
@@ -761,99 +748,93 @@ export default function InvoicePage() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Invoices</h1>
-        </div>
+        {/* Top bar: Title | Date Range | Business | Download buttons */}
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-bold mr-2">Invoices</h1>
 
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col md:flex-row gap-4 items-end">
-            <div className="flex-1 space-y-1">
-              <label className="text-xs font-bold text-slate-500 uppercase">Search Invoices</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input 
-                  placeholder="Search by invoice no, customer name..." 
-                  className="pl-9"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  data-testid="input-search-invoices"
-                />
-              </div>
+          {/* From date */}
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs font-semibold text-slate-500 whitespace-nowrap">From</label>
+            <div className="relative">
+              <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+              <Input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="pl-8 h-9 w-36 text-sm"
+                data-testid="input-from-date"
+              />
             </div>
-
-            <div className="w-full md:w-44 space-y-1">
-              <label className="text-xs font-bold text-slate-500 uppercase">Business Filter</label>
-              <Select value={businessFilter} onValueChange={setBusinessFilter}>
-                <SelectTrigger data-testid="select-business-filter">
-                  <SelectValue placeholder="All Businesses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Businesses</SelectItem>
-                  <SelectItem value="Auto Gamma">Auto Gamma</SelectItem>
-                  <SelectItem value="AGNX">AGNX</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="w-full md:w-40 space-y-1">
-              <label className="text-xs font-bold text-slate-500 uppercase">Period</label>
-              <Select value={periodFilter} onValueChange={(v) => setPeriodFilter(v as any)}>
-                <SelectTrigger data-testid="select-period-filter">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Time</SelectItem>
-                  <SelectItem value="day">Day</SelectItem>
-                  <SelectItem value="week">Week</SelectItem>
-                  <SelectItem value="month">Month</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {periodFilter !== "all" && (
-              <div className="w-full md:w-48 space-y-1">
-                <label className="text-xs font-bold text-slate-500 uppercase">
-                  {periodFilter === "day" ? "Select Date" : periodFilter === "week" ? "Any Date in Week" : "Any Date in Month"}
-                </label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="pl-9"
-                    data-testid="input-period-date"
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold text-slate-500 uppercase mr-1">Download:</span>
-            <Button 
-              variant="outline" 
-              onClick={() => downloadExcel("Auto Gamma", filteredInvoices)}
-              className="h-9 bg-white border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 gap-2 text-sm"
-              data-testid="button-download-autogamma"
+          {/* To date */}
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs font-semibold text-slate-500 whitespace-nowrap">To</label>
+            <div className="relative">
+              <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+              <Input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="pl-8 h-9 w-36 text-sm"
+                data-testid="input-to-date"
+              />
+            </div>
+          </div>
+
+          {(fromDate || toDate) && (
+            <button
+              onClick={() => { setFromDate(""); setToDate(""); }}
+              className="text-xs text-slate-400 hover:text-slate-700 underline"
             >
-              <Download className="h-4 w-4" />
-              Auto Gamma {periodFilter !== "all" ? `(${filteredInvoices.filter(i => i.business === "Auto Gamma").length})` : ""}
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => downloadExcel("AGNX", filteredInvoices)}
-              className="h-9 bg-white border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 gap-2 text-sm"
-              data-testid="button-download-agnx"
-            >
-              <Download className="h-4 w-4" />
-              AGNX {periodFilter !== "all" ? `(${filteredInvoices.filter(i => i.business === "AGNX").length})` : ""}
-            </Button>
-            {periodFilter !== "all" && (
-              <span className="text-xs text-slate-400 italic">
-                {filteredInvoices.length} invoice{filteredInvoices.length !== 1 ? "s" : ""} in view
-              </span>
-            )}
+              Clear
+            </button>
+          )}
+
+          {/* Business filter */}
+          <Select value={businessFilter} onValueChange={setBusinessFilter}>
+            <SelectTrigger className="h-9 w-40 text-sm" data-testid="select-business-filter">
+              <SelectValue placeholder="All Businesses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Businesses</SelectItem>
+              <SelectItem value="Auto Gamma">Auto Gamma</SelectItem>
+              <SelectItem value="AGNX">AGNX</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Download buttons */}
+          <Button
+            variant="outline"
+            onClick={() => downloadExcel("Auto Gamma", filteredInvoices)}
+            className="h-9 bg-white border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 gap-2 text-sm"
+            data-testid="button-download-autogamma"
+          >
+            <Download className="h-4 w-4" />
+            Auto Gamma ({filteredInvoices.filter(i => i.business === "Auto Gamma").length})
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => downloadExcel("AGNX", filteredInvoices)}
+            className="h-9 bg-white border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 gap-2 text-sm"
+            data-testid="button-download-agnx"
+          >
+            <Download className="h-4 w-4" />
+            AGNX ({filteredInvoices.filter(i => i.business === "AGNX").length})
+          </Button>
+        </div>
+
+        {/* Search bar */}
+        <div className="flex flex-col gap-4">
+          <div className="relative max-w-xl">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search by invoice no, customer name..."
+              className="pl-9"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              data-testid="input-search-invoices"
+            />
           </div>
         </div>
 

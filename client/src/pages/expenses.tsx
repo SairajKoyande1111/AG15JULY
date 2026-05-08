@@ -2,7 +2,9 @@ import { Layout } from "@/components/layout/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -15,11 +17,8 @@ import {
   Trash2,
   TrendingDown,
   Calendar,
-  BarChart3,
   Search,
   X,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 import {
   Dialog,
@@ -28,8 +27,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-
-type ViewMode = "all" | "daily" | "monthly";
 
 function fmtINR(n: number) {
   return n.toLocaleString("en-IN");
@@ -47,15 +44,6 @@ function formatMonthLabel(ym: string) {
   const [y, m] = ym.split("-");
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   return `${months[parseInt(m) - 1]} ${y}`;
-}
-
-function formatDayLabel(dateStr: string) {
-  if (!dateStr) return "";
-  const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-  const parts = dateStr.split("-");
-  if (parts.length !== 3) return dateStr;
-  const d = new Date(dateStr + "T00:00:00");
-  return `${days[d.getDay()]}, ${formatDate(dateStr)}`;
 }
 
 function todayStr() {
@@ -155,11 +143,7 @@ export default function ExpensesPage() {
   const { toast } = useToast();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState(() => thisMonthStr());
-  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
-
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
@@ -189,26 +173,6 @@ export default function ExpensesPage() {
   const totalToday = useMemo(() => expenses.filter(e => e.date === today).reduce((s, e) => s + (e.price || 0), 0), [expenses, today]);
   const totalThisMonth = useMemo(() => expenses.filter(e => (e.date || "").startsWith(thisMonth)).reduce((s, e) => s + (e.price || 0), 0), [expenses, thisMonth]);
 
-  const monthlyBreakdown = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const e of expenses) {
-      const m = (e.date || "").substring(0, 7);
-      if (m) map.set(m, (map.get(m) || 0) + (e.price || 0));
-    }
-    const sorted = Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-    const last6 = sorted.slice(-6);
-    if (last6.length === 0) {
-      const now = new Date();
-      return Array.from({ length: 3 }, (_, i) => {
-        const d = new Date(now.getFullYear(), now.getMonth() - (2 - i), 1);
-        return [`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, 0] as [string, number];
-      });
-    }
-    return last6;
-  }, [expenses]);
-
-  const maxMonthly = useMemo(() => Math.max(...monthlyBreakdown.map(([, v]) => v), 1), [monthlyBreakdown]);
-
   const filteredExpenses = useMemo(() => {
     let list = [...expenses];
     if (searchQuery.trim()) {
@@ -219,9 +183,6 @@ export default function ExpensesPage() {
         (e.category || "").toLowerCase().includes(q)
       );
     }
-    if (viewMode === "monthly") {
-      list = list.filter(e => (e.date || "").startsWith(selectedMonth));
-    }
     if (fromDate) {
       list = list.filter(e => (e.date || "") >= fromDate);
     }
@@ -229,32 +190,13 @@ export default function ExpensesPage() {
       list = list.filter(e => (e.date || "") <= toDate);
     }
     return list.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-  }, [expenses, searchQuery, viewMode, selectedMonth, fromDate, toDate]);
-
-  const dailyGroups = useMemo(() => {
-    const map = new Map<string, Expense[]>();
-    for (const e of filteredExpenses) {
-      const d = e.date || "";
-      if (!map.has(d)) map.set(d, []);
-      map.get(d)!.push(e);
-    }
-    return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
-  }, [filteredExpenses]);
-
-  const toggleDay = (day: string) => {
-    setExpandedDays(prev => {
-      const next = new Set(prev);
-      if (next.has(day)) next.delete(day);
-      else next.add(day);
-      return next;
-    });
-  };
+  }, [expenses, searchQuery, fromDate, toDate]);
 
   const filteredTotal = useMemo(() => filteredExpenses.reduce((s, e) => s + (e.price || 0), 0), [filteredExpenses]);
 
   return (
     <Layout>
-      <div className="p-6 space-y-6 max-w-5xl mx-auto">
+      <div className="p-6 space-y-6 max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -277,7 +219,7 @@ export default function ExpensesPage() {
           </Dialog>
         </div>
 
-        {/* Analytics Cards */}
+        {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="border-slate-200">
             <CardContent className="pt-5 pb-4">
@@ -311,129 +253,72 @@ export default function ExpensesPage() {
           </Card>
         </div>
 
-        {/* Monthly Bar Chart — always visible */}
-        <Card className="border-slate-200">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-primary" />
-              Monthly Trend
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-end gap-3 h-28">
-              {monthlyBreakdown.map(([month, total]) => {
-                const heightPct = total === 0 ? 4 : Math.round((total / maxMonthly) * 100);
-                const isCurrentMonth = month === thisMonth;
-                return (
-                  <div key={month} className="flex-1 flex flex-col items-center gap-1">
-                    <span className="text-[10px] font-semibold text-muted-foreground">
-                      {total > 0 ? `₹${total >= 1000 ? `${(total / 1000).toFixed(1)}k` : total}` : "–"}
-                    </span>
-                    <div
-                      className={`w-full rounded-t-sm transition-all ${isCurrentMonth ? "bg-primary" : "bg-primary/40"}`}
-                      style={{ height: `${heightPct}%`, minHeight: "6px", maxHeight: "80px" }}
-                    />
-                    <span className={`text-[10px] font-medium ${isCurrentMonth ? "text-primary" : "text-muted-foreground"}`}>
-                      {formatMonthLabel(month)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            {expenses.length === 0 && (
-              <p className="text-center text-xs text-muted-foreground mt-2">Add your first expense to see the trend chart populate.</p>
+        {/* Filters row */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, details, or category..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-9"
+              data-testid="input-search-expenses"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
             )}
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* View Controls */}
-        <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          {/* From date */}
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs font-semibold text-slate-500 whitespace-nowrap">From</label>
+            <div className="relative">
+              <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
               <Input
-                placeholder="Search by name, details, or category..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-10"
-                data-testid="input-search-expenses"
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="pl-8 h-9 w-36 text-sm"
+                data-testid="input-from-date"
               />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-            <div className="flex gap-2">
-              {(["all", "daily", "monthly"] as ViewMode[]).map(mode => (
-                <Button
-                  key={mode}
-                  size="sm"
-                  variant={viewMode === mode ? "default" : "outline"}
-                  onClick={() => { setViewMode(mode); setFromDate(""); setToDate(""); }}
-                  data-testid={`btn-view-${mode}`}
-                >
-                  {mode === "all" ? "All" : mode === "daily" ? "Day-wise" : "Month-wise"}
-                </Button>
-              ))}
             </div>
           </div>
 
-          {/* Date Filters */}
-          {viewMode === "monthly" && (
-            <div className="flex items-center gap-3 p-3 bg-slate-50 border rounded-lg">
-              <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span className="text-sm font-medium text-slate-700 whitespace-nowrap">Month:</span>
+          {/* To date */}
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs font-semibold text-slate-500 whitespace-nowrap">To</label>
+            <div className="relative">
+              <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
               <Input
-                type="month"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="h-9 w-44"
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="pl-8 h-9 w-36 text-sm"
+                data-testid="input-to-date"
               />
             </div>
+          </div>
+
+          {(fromDate || toDate) && (
+            <button
+              onClick={() => { setFromDate(""); setToDate(""); }}
+              className="text-xs text-slate-400 hover:text-slate-700 underline"
+            >
+              Clear
+            </button>
           )}
 
-          {(viewMode === "all" || viewMode === "daily") && (
-            <div className="flex items-center gap-3 p-3 bg-slate-50 border rounded-lg flex-wrap">
-              <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span className="text-sm font-medium text-slate-700 whitespace-nowrap">Date Range:</span>
-              <div className="flex items-center gap-2 flex-1 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">From</span>
-                  <Input
-                    type="date"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                    className="h-9 w-40"
-                    data-testid="input-from-date"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">To</span>
-                  <Input
-                    type="date"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                    className="h-9 w-40"
-                    data-testid="input-to-date"
-                  />
-                </div>
-                {(fromDate || toDate) && (
-                  <Button variant="ghost" size="sm" onClick={() => { setFromDate(""); setToDate(""); }} className="h-9 px-2 text-muted-foreground">
-                    <X className="h-3.5 w-3.5 mr-1" /> Clear
-                  </Button>
-                )}
-              </div>
-              {(fromDate || toDate) && (
-                <span className="text-xs text-primary font-semibold ml-auto">
-                  {filteredExpenses.length} result{filteredExpenses.length !== 1 ? "s" : ""} — ₹{fmtINR(filteredTotal)}
-                </span>
-              )}
-            </div>
+          {(fromDate || toDate || searchQuery) && (
+            <span className="text-xs text-primary font-semibold ml-auto">
+              {filteredExpenses.length} result{filteredExpenses.length !== 1 ? "s" : ""} — ₹{fmtINR(filteredTotal)}
+            </span>
           )}
         </div>
 
-        {/* Expense List */}
+        {/* Expense Table */}
         {isLoading ? (
           <div className="text-center py-16 text-muted-foreground">Loading expenses...</div>
         ) : filteredExpenses.length === 0 ? (
@@ -445,57 +330,75 @@ export default function ExpensesPage() {
               {searchQuery || fromDate || toDate ? "No expenses match your filters." : "No expenses yet. Click \"Add Expense\" to get started."}
             </p>
           </div>
-        ) : viewMode === "daily" ? (
-          <div className="space-y-3">
-            <div className="text-sm font-medium text-muted-foreground px-1">
-              {filteredExpenses.length} expense{filteredExpenses.length !== 1 ? "s" : ""} — Total: ₹{fmtINR(filteredTotal)}
-            </div>
-            {dailyGroups.map(([day, items]) => {
-              const dayTotal = items.reduce((s, e) => s + (e.price || 0), 0);
-              const expanded = expandedDays.has(day);
-              const isToday = day === today;
-              return (
-                <Card key={day} className="border-slate-200 overflow-hidden">
-                  <button
-                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors"
-                    onClick={() => toggleDay(day)}
-                    data-testid={`day-group-${day}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Calendar className="h-4 w-4 text-primary" />
-                      <span className="font-semibold text-slate-800">{formatDayLabel(day)}</span>
-                      {isToday && <span className="text-[10px] bg-primary text-primary-foreground rounded px-1.5 py-0.5 font-bold uppercase">Today</span>}
-                      <span className="text-xs text-muted-foreground">{items.length} item{items.length !== 1 ? "s" : ""}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold text-primary">₹{fmtINR(dayTotal)}</span>
-                      {expanded ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
-                    </div>
-                  </button>
-                  {expanded && (
-                    <div className="divide-y border-t">
-                      {items.map(expense => (
-                        <ExpenseRow key={expense.id} expense={expense} onEdit={setEditingExpense} onDelete={(id) => {
-                          if (confirm("Delete this expense?")) deleteMutation.mutate(id);
-                        }} />
-                      ))}
-                    </div>
-                  )}
-                </Card>
-              );
-            })}
-          </div>
         ) : (
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-muted-foreground px-1">
-              {filteredExpenses.length} expense{filteredExpenses.length !== 1 ? "s" : ""} — Total: ₹{fmtINR(filteredTotal)}
-            </div>
-            <div className="border rounded-md overflow-hidden divide-y">
-              {filteredExpenses.map(expense => (
-                <ExpenseRow key={expense.id} expense={expense} onEdit={setEditingExpense} onDelete={(id) => {
-                  if (confirm("Delete this expense?")) deleteMutation.mutate(id);
-                }} />
-              ))}
+          <div className="rounded-md border border-slate-200 overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50">
+                  <TableHead className="font-bold text-slate-700">Date</TableHead>
+                  <TableHead className="font-bold text-slate-700">Expense Name</TableHead>
+                  <TableHead className="font-bold text-slate-700">Category</TableHead>
+                  <TableHead className="font-bold text-slate-700">Details</TableHead>
+                  <TableHead className="font-bold text-slate-700 text-right">Amount</TableHead>
+                  <TableHead className="font-bold text-slate-700 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredExpenses.map((expense) => (
+                  <TableRow key={expense.id} className="hover:bg-slate-50/60" data-testid={`expense-row-${expense.id}`}>
+                    <TableCell className="text-sm text-slate-600 whitespace-nowrap">{formatDate(expense.date)}</TableCell>
+                    <TableCell className="font-semibold text-slate-800">{expense.name}</TableCell>
+                    <TableCell>
+                      {expense.category ? (
+                        <Badge variant="secondary" className="text-[11px] bg-slate-100 text-slate-600 font-medium">
+                          {expense.category}
+                        </Badge>
+                      ) : (
+                        <span className="text-slate-400 text-xs">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
+                      {expense.details || <span className="text-slate-300">—</span>}
+                    </TableCell>
+                    <TableCell className="text-right font-bold text-primary whitespace-nowrap">
+                      ₹{fmtINR(expense.price)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setEditingExpense(expense)}
+                          data-testid={`btn-edit-expense-${expense.id}`}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-400 hover:text-destructive"
+                          onClick={() => {
+                            if (confirm("Delete this expense?")) deleteMutation.mutate(expense.id!);
+                          }}
+                          data-testid={`btn-delete-expense-${expense.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {/* Table footer totals */}
+            <div className="flex justify-between items-center px-4 py-3 border-t bg-slate-50">
+              <span className="text-sm text-muted-foreground">
+                {filteredExpenses.length} expense{filteredExpenses.length !== 1 ? "s" : ""}
+              </span>
+              <span className="font-bold text-slate-800">
+                Total: ₹{fmtINR(filteredTotal)}
+              </span>
             </div>
           </div>
         )}
@@ -513,33 +416,5 @@ export default function ExpensesPage() {
         </Dialog>
       </div>
     </Layout>
-  );
-}
-
-function ExpenseRow({ expense, onEdit, onDelete }: { expense: Expense; onEdit: (e: Expense) => void; onDelete: (id: string) => void }) {
-  return (
-    <div className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors" data-testid={`expense-row-${expense.id}`}>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-semibold text-slate-800 truncate">{expense.name}</span>
-          {expense.category && (
-            <span className="text-[10px] bg-slate-100 text-slate-500 rounded px-1.5 py-0.5 font-medium uppercase">{expense.category}</span>
-          )}
-        </div>
-        {expense.details && (
-          <p className="text-xs text-muted-foreground mt-0.5 truncate">{expense.details}</p>
-        )}
-        <p className="text-xs text-muted-foreground mt-0.5">{formatDate(expense.date)}</p>
-      </div>
-      <div className="flex items-center gap-3 ml-4">
-        <span className="font-bold text-primary whitespace-nowrap">₹{fmtINR(expense.price)}</span>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(expense)} data-testid={`btn-edit-expense-${expense.id}`}>
-          <Edit2 className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-destructive" onClick={() => onDelete(expense.id!)} data-testid={`btn-delete-expense-${expense.id}`}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
   );
 }
