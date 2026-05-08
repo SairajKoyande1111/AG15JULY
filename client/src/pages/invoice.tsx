@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { FileText, Loader2, Search, Trash2, Eye, ArrowUpDown, Printer, Send, Download } from "lucide-react";
+import { FileText, Loader2, Search, Trash2, Eye, ArrowUpDown, Printer, Send, Download, Calendar } from "lucide-react";
 import * as XLSX from "xlsx";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
@@ -82,7 +82,7 @@ function InvoiceHeader({ business, invoiceNo, date }: { business: string; invoic
       <div className="text-right space-y-2">
         <p className="text-xs font-bold text-red-600 uppercase tracking-widest">Invoice Details</p>
         <p className="text-2xl font-bold text-slate-900">#{invoiceNo}</p>
-        <p className="text-slate-600">{format(new Date(date || new Date()), "dd MMM yyyy, hh:mm a")}</p>
+        <p className="text-slate-600">{format(new Date(date || new Date()), "dd MMM yyyy")}</p>
         {business === "Auto Gamma" && (
           <p className="text-xs font-bold text-slate-700">GST: 27ACEFA1874A1ZS</p>
         )}
@@ -361,6 +361,8 @@ export default function InvoicePage() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [businessFilter, setBusinessFilter] = useState<string>("all");
+  const [periodFilter, setPeriodFilter] = useState<"all" | "day" | "week" | "month">("all");
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0]);
   const [sortConfig, setSortConfig] = useState<{ key: keyof Invoice; direction: 'asc' | 'desc' } | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showPaymentDialog, setShowViewPaymentDialog] = useState(false);
@@ -466,9 +468,36 @@ export default function InvoicePage() {
       );
     }
 
-    // Filter
+    // Business Filter
     if (businessFilter !== "all") {
       result = result.filter(inv => inv.business === businessFilter);
+    }
+
+    // Period Filter
+    if (periodFilter !== "all" && selectedDate) {
+      const anchor = new Date(selectedDate);
+      anchor.setHours(0, 0, 0, 0);
+
+      result = result.filter(inv => {
+        if (!inv.date) return false;
+        const invDate = new Date(inv.date);
+        invDate.setHours(0, 0, 0, 0);
+
+        if (periodFilter === "day") {
+          return invDate.getTime() === anchor.getTime();
+        }
+        if (periodFilter === "week") {
+          const weekStart = new Date(anchor);
+          weekStart.setDate(anchor.getDate() - anchor.getDay());
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekStart.getDate() + 6);
+          return invDate >= weekStart && invDate <= weekEnd;
+        }
+        if (periodFilter === "month") {
+          return invDate.getFullYear() === anchor.getFullYear() && invDate.getMonth() === anchor.getMonth();
+        }
+        return true;
+      });
     }
 
     // Sort
@@ -484,7 +513,7 @@ export default function InvoicePage() {
     }
 
     return result;
-  }, [invoices, searchTerm, businessFilter, sortConfig]);
+  }, [invoices, searchTerm, businessFilter, periodFilter, selectedDate, sortConfig]);
 
   const handleSort = (key: keyof Invoice) => {
     setSortConfig(prev => {
@@ -511,15 +540,11 @@ export default function InvoicePage() {
     }
   };
 
-  const downloadExcel = (businessType: "Auto Gamma" | "AGNX") => {
-    console.log(`Starting Excel download for: ${businessType}`);
-    console.log("Total invoices available:", invoices.length);
-    
-    const businessInvoices = invoices.filter(inv => inv.business === businessType);
-    console.log(`Found ${businessInvoices.length} invoices for ${businessType}`);
+  const downloadExcel = (businessType: "Auto Gamma" | "AGNX", sourceInvoices?: Invoice[]) => {
+    const pool = sourceInvoices ?? invoices;
+    const businessInvoices = pool.filter(inv => inv.business === businessType);
     
     if (businessInvoices.length === 0) {
-      console.warn(`No invoices found for ${businessType}. Filtered from:`, invoices.map(i => i.business));
       toast({
         title: "No data",
         description: `No invoices found for ${businessType}`,
@@ -561,8 +586,6 @@ export default function InvoicePage() {
       });
     });
 
-    console.log("Mapped Excel data sample:", excelData[0]);
-
     try {
       const worksheet = XLSX.utils.json_to_sheet(excelData);
 
@@ -572,18 +595,13 @@ export default function InvoicePage() {
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Invoices");
       
-      console.log("Workbook created, worksheet ref:", worksheet['!ref']);
-      
       if (!worksheet['!ref']) {
         throw new Error("Worksheet reference is empty - no data was written");
       }
 
       const fileName = `${businessType.replace(/\s+/g, '_')}_Invoices_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
-      
-      // Use writeFile which handles the blob and download automatically
       XLSX.writeFile(workbook, fileName);
       
-      console.log("Excel download triggered via writeFile with fixed widths");
       toast({
         title: "Success",
         description: `Excel downloaded for ${businessType}`
@@ -747,54 +765,95 @@ export default function InvoicePage() {
           <h1 className="text-2xl font-bold">Invoices</h1>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-4 items-end">
-          <div className="flex-1 space-y-1">
-            <label className="text-xs font-bold text-slate-500 uppercase">Search Invoices</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input 
-                placeholder="Search by invoice no, customer name..." 
-                className="pl-9"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                data-testid="input-search-invoices"
-              />
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row gap-4 items-end">
+            <div className="flex-1 space-y-1">
+              <label className="text-xs font-bold text-slate-500 uppercase">Search Invoices</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input 
+                  placeholder="Search by invoice no, customer name..." 
+                  className="pl-9"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  data-testid="input-search-invoices"
+                />
+              </div>
             </div>
+
+            <div className="w-full md:w-44 space-y-1">
+              <label className="text-xs font-bold text-slate-500 uppercase">Business Filter</label>
+              <Select value={businessFilter} onValueChange={setBusinessFilter}>
+                <SelectTrigger data-testid="select-business-filter">
+                  <SelectValue placeholder="All Businesses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Businesses</SelectItem>
+                  <SelectItem value="Auto Gamma">Auto Gamma</SelectItem>
+                  <SelectItem value="AGNX">AGNX</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="w-full md:w-40 space-y-1">
+              <label className="text-xs font-bold text-slate-500 uppercase">Period</label>
+              <Select value={periodFilter} onValueChange={(v) => setPeriodFilter(v as any)}>
+                <SelectTrigger data-testid="select-period-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Time</SelectItem>
+                  <SelectItem value="day">Day</SelectItem>
+                  <SelectItem value="week">Week</SelectItem>
+                  <SelectItem value="month">Month</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {periodFilter !== "all" && (
+              <div className="w-full md:w-48 space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase">
+                  {periodFilter === "day" ? "Select Date" : periodFilter === "week" ? "Any Date in Week" : "Any Date in Month"}
+                </label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="pl-9"
+                    data-testid="input-period-date"
+                  />
+                </div>
+              </div>
+            )}
           </div>
-          
+
           <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold text-slate-500 uppercase mr-1">Download:</span>
             <Button 
               variant="outline" 
-              onClick={() => downloadExcel("Auto Gamma")}
-              className="h-10 bg-white border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 gap-2"
+              onClick={() => downloadExcel("Auto Gamma", filteredInvoices)}
+              className="h-9 bg-white border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 gap-2 text-sm"
               data-testid="button-download-autogamma"
             >
               <Download className="h-4 w-4" />
-              Download Auto Gamma
+              Auto Gamma {periodFilter !== "all" ? `(${filteredInvoices.filter(i => i.business === "Auto Gamma").length})` : ""}
             </Button>
             <Button 
               variant="outline" 
-              onClick={() => downloadExcel("AGNX")}
-              className="h-10 bg-white border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 gap-2"
+              onClick={() => downloadExcel("AGNX", filteredInvoices)}
+              className="h-9 bg-white border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 gap-2 text-sm"
               data-testid="button-download-agnx"
             >
               <Download className="h-4 w-4" />
-              Download AGNX
+              AGNX {periodFilter !== "all" ? `(${filteredInvoices.filter(i => i.business === "AGNX").length})` : ""}
             </Button>
-          </div>
-
-          <div className="w-full md:w-48 space-y-1">
-            <label className="text-xs font-bold text-slate-500 uppercase">Business Filter</label>
-            <Select value={businessFilter} onValueChange={setBusinessFilter}>
-              <SelectTrigger data-testid="select-business-filter">
-                <SelectValue placeholder="All Businesses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Businesses</SelectItem>
-                <SelectItem value="Auto Gamma">Auto Gamma</SelectItem>
-                <SelectItem value="AGNX">AGNX</SelectItem>
-              </SelectContent>
-            </Select>
+            {periodFilter !== "all" && (
+              <span className="text-xs text-slate-400 italic">
+                {filteredInvoices.length} invoice{filteredInvoices.length !== 1 ? "s" : ""} in view
+              </span>
+            )}
           </div>
         </div>
 

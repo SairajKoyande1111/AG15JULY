@@ -1140,8 +1140,9 @@ export class MongoStorage implements IStorage {
         const totalAmount = subtotalAfterDiscount;
 
         const bizPrefix = biz === "Auto Gamma" ? "AG" : "AGNX";
+        const invoiceDateStr = (j.date ? new Date(j.date) : new Date()).toISOString().slice(0, 10);
         const lastInvoiceCreate = await InvoiceModel.findOne({
-          invoiceNo: { $regex: `^${bizPrefix}-${yearInvoice}-` }
+          invoiceNo: { $regex: `^${bizPrefix}-${invoiceDateStr}-` }
         }).sort({ invoiceNo: -1 });
         let nextNumCreate = 1;
         if (lastInvoiceCreate) {
@@ -1149,7 +1150,7 @@ export class MongoStorage implements IStorage {
           const lastNum = parseInt(parts[parts.length - 1], 10);
           if (!isNaN(lastNum)) nextNumCreate = lastNum + 1;
         }
-        const invoiceNo = `${bizPrefix}-${yearInvoice}-${nextNumCreate.toString().padStart(4, "0")}`;
+        const invoiceNo = `${bizPrefix}-${invoiceDateStr}-${nextNumCreate.toString().padStart(2, "0")}`;
 
         // For split invoices, each invoice should only carry its own share of payment
         const jobPaymentsCreate: any[] = (j as any).payments || [];
@@ -1710,8 +1711,9 @@ export class MongoStorage implements IStorage {
 
           // Create new invoice if it doesn't exist
           const bizPrefix = biz === "Auto Gamma" ? "AG" : "AGNX";
+          const updateDateStr = (j.date ? new Date(j.date) : new Date()).toISOString().slice(0, 10);
           const lastInvoiceUpdate = await InvoiceModel.findOne({
-            invoiceNo: { $regex: `^${bizPrefix}-${year}-` }
+            invoiceNo: { $regex: `^${bizPrefix}-${updateDateStr}-` }
           }).sort({ invoiceNo: -1 });
           let nextNumUpdate = 1;
           if (lastInvoiceUpdate) {
@@ -1719,7 +1721,7 @@ export class MongoStorage implements IStorage {
             const lastNum = parseInt(parts[parts.length - 1], 10);
             if (!isNaN(lastNum)) nextNumUpdate = lastNum + 1;
           }
-          const invoiceNo = `${bizPrefix}-${year}-${nextNumUpdate.toString().padStart(4, "0")}`;
+          const invoiceNo = `${bizPrefix}-${updateDateStr}-${nextNumUpdate.toString().padStart(2, "0")}`;
 
           // For split invoices, each invoice should only carry its own share of payment
           const jobPaymentsNew: any[] = (j as any).payments || [];

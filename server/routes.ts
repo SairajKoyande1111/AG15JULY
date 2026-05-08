@@ -864,6 +864,44 @@ app.use((req, res, next) => {
     res.json({ message: "Expense deleted" });
   });
 
+  // Migration: Re-number all existing invoices in new format AG-YYYY-MM-DD-NN
+  app.post("/api/admin/migrate-invoice-numbers", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    try {
+      const InvoiceModel = mongoose.model("Invoice");
+      const allInvoices = await InvoiceModel.find().sort({ _id: 1 }) as any[];
+
+      // Group invoices by business + date (YYYY-MM-DD from invoice.date)
+      const groups = new Map<string, any[]>();
+      for (const inv of allInvoices) {
+        const biz = inv.business === "Auto Gamma" ? "AG" : "AGNX";
+        const dateStr = inv.date
+          ? new Date(inv.date).toISOString().slice(0, 10)
+          : new Date().toISOString().slice(0, 10);
+        const key = `${biz}:${dateStr}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(inv);
+      }
+
+      let updated = 0;
+      for (const [key, group] of Array.from(groups.entries())) {
+        const [prefix, dateStr] = key.split(":");
+        // Sort within group by _id to preserve creation order
+        group.sort((a: any, b: any) => a._id.toString().localeCompare(b._id.toString()));
+        for (let i = 0; i < group.length; i++) {
+          const newNo = `${prefix}-${dateStr}-${(i + 1).toString().padStart(2, "0")}`;
+          if (group[i].invoiceNo !== newNo) {
+            await InvoiceModel.findByIdAndUpdate(group[i]._id, { invoiceNo: newNo });
+            updated++;
+          }
+        }
+      }
+      res.json({ message: `Migration complete. ${updated} invoices updated.` });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message || "Migration failed" });
+    }
+  });
+
   // Seed default user if not exists
   if (mongoose.connection.readyState === 1) {
     const defaultEmail = "abhishek@autogamma.in";
