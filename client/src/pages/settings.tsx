@@ -17,7 +17,68 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { User as UserType, Shield, Mail, User as UserIcon, Save } from "lucide-react";
+import { User as UserType, Shield, Mail, User as UserIcon, Save, RefreshCw, Database } from "lucide-react";
+import { useState } from "react";
+
+function AdminTools() {
+  const { toast } = useToast();
+  const [migrationResult, setMigrationResult] = useState<string | null>(null);
+
+  const migrateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/migrate-invoice-numbers", {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setMigrationResult(data.message || "Done");
+      toast({ title: "Migration complete", description: data.message });
+    },
+    onError: (e: any) => {
+      toast({ title: "Migration failed", description: e?.message || "Error", variant: "destructive" });
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <Database className="h-4 w-4 text-primary" />
+          Admin Tools
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Data maintenance utilities
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="border rounded-md p-3 space-y-2">
+          <p className="text-xs font-semibold text-slate-700">Re-number Invoices</p>
+          <p className="text-xs text-muted-foreground">
+            Converts all invoice numbers to the new <span className="font-mono bg-slate-100 px-1 rounded">AG-YYYY-MM-DD-NN</span> date-based format. Safe to run multiple times.
+          </p>
+          {migrationResult && (
+            <p className="text-xs text-green-700 bg-green-50 rounded p-2 border border-green-100">{migrationResult}</p>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-2 text-xs"
+            onClick={() => {
+              if (confirm("This will re-number all invoices. Continue?")) {
+                setMigrationResult(null);
+                migrateMutation.mutate();
+              }
+            }}
+            disabled={migrateMutation.isPending}
+            data-testid="btn-migrate-invoices"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${migrateMutation.isPending ? "animate-spin" : ""}`} />
+            {migrateMutation.isPending ? "Running..." : "Run Migration"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 const settingsSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -182,6 +243,8 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
+
+            <AdminTools />
           </div>
         </div>
       </div>

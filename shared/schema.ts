@@ -159,6 +159,7 @@ export const expenseSchema = z.object({
   price: z.coerce.number().min(0),
   date: z.string(),
   category: z.string().optional().default(""),
+  paymentMode: z.string().optional().default(""),
   createdAt: z.string().default(() => new Date().toISOString()),
 });
 
@@ -436,3 +437,29 @@ export const vendorPurchaseSchema = z.object({
 export type VendorPurchase = z.infer<typeof vendorPurchaseSchema>;
 export const insertVendorPurchaseSchema = vendorPurchaseSchema.omit({ id: true, createdAt: true });
 export type InsertVendorPurchase = z.infer<typeof insertVendorPurchaseSchema>;
+
+// Warranty Follow-up Schemas
+export const warrantyFollowUpSchema = z.object({
+  id: z.string().optional(),
+  jobCardId: z.string().min(1),
+  jobNo: z.string(),
+  customerName: z.string(),
+  customerPhone: z.string(),
+  vehicleInfo: z.string(),
+  licensePlate: z.string().optional().default(""),
+  serviceName: z.string(),
+  serviceType: z.enum(["Service", "PPF"]),
+  warrantyPeriod: z.string(),
+  serviceDate: z.string(),
+  checkupStatus: z.enum(["pending", "done"]).default("pending"),
+  checkupDate: z.string().optional().default(""),
+  checkupNotes: z.string().optional().default(""),
+  topupStatus: z.enum(["pending", "done", "not_applicable"]).default("pending"),
+  topupDate: z.string().optional().default(""),
+  topupNotes: z.string().optional().default(""),
+  createdAt: z.string().default(() => new Date().toISOString()),
+});
+
+export type WarrantyFollowUp = z.infer<typeof warrantyFollowUpSchema>;
+export const insertWarrantyFollowUpSchema = warrantyFollowUpSchema.omit({ id: true, createdAt: true });
+export type InsertWarrantyFollowUp = z.infer<typeof insertWarrantyFollowUpSchema>;

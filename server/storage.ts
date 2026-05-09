@@ -26,6 +26,8 @@ import {
   InsertVendorPurchase,
   Expense,
   InsertExpense,
+  WarrantyFollowUp,
+  InsertWarrantyFollowUp,
 } from "@shared/schema";
 import session from "express-session";
 // @ts-ignore
@@ -106,10 +108,33 @@ const expenseMongoSchema = new mongoose.Schema({
   price: { type: Number, required: true },
   date: { type: String, required: true },
   category: { type: String, default: "" },
+  paymentMode: { type: String, default: "" },
   createdAt: { type: String, default: () => new Date().toISOString() },
 });
 
 export const ExpenseModel = mongoose.model("Expense", expenseMongoSchema);
+
+const warrantyFollowUpMongoSchema = new mongoose.Schema({
+  jobCardId: { type: String, required: true },
+  jobNo: { type: String, required: true },
+  customerName: { type: String, required: true },
+  customerPhone: { type: String, required: true },
+  vehicleInfo: { type: String, required: true },
+  licensePlate: { type: String, default: "" },
+  serviceName: { type: String, required: true },
+  serviceType: { type: String, enum: ["Service", "PPF"], required: true },
+  warrantyPeriod: { type: String, required: true },
+  serviceDate: { type: String, required: true },
+  checkupStatus: { type: String, enum: ["pending", "done"], default: "pending" },
+  checkupDate: { type: String, default: "" },
+  checkupNotes: { type: String, default: "" },
+  topupStatus: { type: String, enum: ["pending", "done", "not_applicable"], default: "pending" },
+  topupDate: { type: String, default: "" },
+  topupNotes: { type: String, default: "" },
+  createdAt: { type: String, default: () => new Date().toISOString() },
+});
+
+export const WarrantyFollowUpModel = mongoose.model("WarrantyFollowUp", warrantyFollowUpMongoSchema);
 
 const technicianMongoSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -2419,6 +2444,35 @@ export class MongoStorage implements IStorage {
 
   async deleteVendorPurchase(id: string): Promise<boolean> {
     const result = await VendorPurchaseModel.findByIdAndDelete(id);
+    return !!result;
+  }
+
+  // ── Warranty Follow-ups ──────────────────────────────────────────────────────
+  async getWarrantyFollowUps(): Promise<WarrantyFollowUp[]> {
+    const docs = await WarrantyFollowUpModel.find().sort({ createdAt: -1 });
+    return docs.map(d => ({ ...d.toObject(), id: d._id.toString() }) as WarrantyFollowUp);
+  }
+
+  async getWarrantyFollowUp(id: string): Promise<WarrantyFollowUp | undefined> {
+    const d = await WarrantyFollowUpModel.findById(id);
+    if (!d) return undefined;
+    return { ...d.toObject(), id: d._id.toString() } as WarrantyFollowUp;
+  }
+
+  async createWarrantyFollowUp(data: InsertWarrantyFollowUp): Promise<WarrantyFollowUp> {
+    const doc = new WarrantyFollowUpModel({ ...data, createdAt: new Date().toISOString() });
+    await doc.save();
+    return { ...doc.toObject(), id: doc._id.toString() } as WarrantyFollowUp;
+  }
+
+  async updateWarrantyFollowUp(id: string, data: Partial<InsertWarrantyFollowUp>): Promise<WarrantyFollowUp | undefined> {
+    const doc = await WarrantyFollowUpModel.findByIdAndUpdate(id, data, { new: true });
+    if (!doc) return undefined;
+    return { ...doc.toObject(), id: doc._id.toString() } as WarrantyFollowUp;
+  }
+
+  async deleteWarrantyFollowUp(id: string): Promise<boolean> {
+    const result = await WarrantyFollowUpModel.findByIdAndDelete(id);
     return !!result;
   }
 }

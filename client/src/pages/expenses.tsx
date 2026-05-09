@@ -20,6 +20,7 @@ import {
   Search,
   X,
   Eye,
+  CreditCard,
 } from "lucide-react";
 import {
   Dialog,
@@ -28,9 +29,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
+
+const PAYMENT_MODES = ["Savings Account", "Current Account", "Personal"] as const;
 
 function fmtINR(n: number) {
   return n.toLocaleString("en-IN");
@@ -103,6 +113,20 @@ function DatePickerButton({
   );
 }
 
+function PaymentModeBadge({ mode }: { mode?: string }) {
+  if (!mode) return <span className="text-slate-300 text-xs">—</span>;
+  const colors: Record<string, string> = {
+    "Savings Account": "bg-blue-50 text-blue-700 border-blue-200",
+    "Current Account": "bg-purple-50 text-purple-700 border-purple-200",
+    "Personal": "bg-orange-50 text-orange-700 border-orange-200",
+  };
+  return (
+    <Badge variant="outline" className={`text-[11px] font-medium ${colors[mode] || "bg-slate-100 text-slate-600"}`}>
+      {mode}
+    </Badge>
+  );
+}
+
 function ExpenseForm({ onClose, initialData }: { onClose: () => void; initialData?: Expense }) {
   const { toast } = useToast();
   const today = todayStr();
@@ -111,6 +135,7 @@ function ExpenseForm({ onClose, initialData }: { onClose: () => void; initialDat
   const [price, setPrice] = useState(initialData?.price?.toString() || "");
   const [date, setDate] = useState(initialData?.date || today);
   const [category, setCategory] = useState(initialData?.category || "");
+  const [paymentMode, setPaymentMode] = useState(initialData?.paymentMode || "");
 
   const mutation = useMutation({
     mutationFn: async (data: any) => {
@@ -149,7 +174,14 @@ function ExpenseForm({ onClose, initialData }: { onClose: () => void; initialDat
       toast({ title: "Date required", variant: "destructive" });
       return;
     }
-    mutation.mutate({ name: name.trim(), details: details.trim(), price: parseFloat(price), date, category: category.trim() });
+    mutation.mutate({
+      name: name.trim(),
+      details: details.trim(),
+      price: parseFloat(price),
+      date,
+      category: category.trim(),
+      paymentMode,
+    });
   };
 
   return (
@@ -172,9 +204,25 @@ function ExpenseForm({ onClose, initialData }: { onClose: () => void; initialDat
           <DatePickerButton value={date} onChange={setDate} placeholder="Select date" testId="input-expense-date" />
         </div>
       </div>
-      <div className="space-y-1.5">
-        <Label>Category <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
-        <Input data-testid="input-expense-category" placeholder="e.g. Utilities, Rent, Supplies" value={category} onChange={(e) => setCategory(e.target.value)} />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label>Category <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
+          <Input data-testid="input-expense-category" placeholder="e.g. Utilities, Rent" value={category} onChange={(e) => setCategory(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Mode of Payment</Label>
+          <Select value={paymentMode} onValueChange={setPaymentMode}>
+            <SelectTrigger data-testid="select-payment-mode" className="h-9">
+              <SelectValue placeholder="Select account" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">— None —</SelectItem>
+              {PAYMENT_MODES.map(m => (
+                <SelectItem key={m} value={m}>{m}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       <div className="flex justify-end gap-3 pt-2 border-t">
         <Button variant="outline" onClick={onClose}>Cancel</Button>
@@ -203,12 +251,20 @@ function ExpenseViewDialog({ expense, onClose }: { expense: Expense; onClose: ()
         <p className="text-xs font-bold uppercase text-slate-400 mb-1">Expense Name</p>
         <p className="text-sm font-semibold text-slate-800">{expense.name}</p>
       </div>
-      {expense.category && (
-        <div>
-          <p className="text-xs font-bold uppercase text-slate-400 mb-1">Category</p>
-          <Badge variant="secondary" className="text-xs bg-slate-100 text-slate-600">{expense.category}</Badge>
-        </div>
-      )}
+      <div className="grid grid-cols-2 gap-4">
+        {expense.category && (
+          <div>
+            <p className="text-xs font-bold uppercase text-slate-400 mb-1">Category</p>
+            <Badge variant="secondary" className="text-xs bg-slate-100 text-slate-600">{expense.category}</Badge>
+          </div>
+        )}
+        {expense.paymentMode && (
+          <div>
+            <p className="text-xs font-bold uppercase text-slate-400 mb-1">Mode of Payment</p>
+            <PaymentModeBadge mode={expense.paymentMode} />
+          </div>
+        )}
+      </div>
       {expense.details && (
         <div>
           <p className="text-xs font-bold uppercase text-slate-400 mb-1">Details</p>
@@ -230,6 +286,7 @@ export default function ExpensesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [filterMode, setFilterMode] = useState("");
 
   const { data: expenses = [], isLoading } = useQuery<Expense[]>({
     queryKey: ["/api/expenses"],
@@ -267,14 +324,11 @@ export default function ExpensesPage() {
         (e.category || "").toLowerCase().includes(q)
       );
     }
-    if (fromDate) {
-      list = list.filter(e => (e.date || "") >= fromDate);
-    }
-    if (toDate) {
-      list = list.filter(e => (e.date || "") <= toDate);
-    }
+    if (fromDate) list = list.filter(e => (e.date || "") >= fromDate);
+    if (toDate) list = list.filter(e => (e.date || "") <= toDate);
+    if (filterMode) list = list.filter(e => e.paymentMode === filterMode);
     return list.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-  }, [expenses, searchQuery, fromDate, toDate]);
+  }, [expenses, searchQuery, fromDate, toDate, filterMode]);
 
   const filteredTotal = useMemo(() => filteredExpenses.reduce((s, e) => s + (e.price || 0), 0), [filteredExpenses]);
 
@@ -339,7 +393,6 @@ export default function ExpensesPage() {
 
         {/* Filters row */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Search */}
           <div className="relative flex-1 min-w-[200px] max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -356,38 +409,37 @@ export default function ExpensesPage() {
             )}
           </div>
 
-          {/* From date */}
           <div className="flex items-center gap-1.5">
             <label className="text-xs font-semibold text-slate-500 whitespace-nowrap">From</label>
-            <DatePickerButton
-              value={fromDate}
-              onChange={setFromDate}
-              placeholder="Start date"
-              testId="input-from-date"
-            />
+            <DatePickerButton value={fromDate} onChange={setFromDate} placeholder="Start date" testId="input-from-date" />
           </div>
 
-          {/* To date */}
           <div className="flex items-center gap-1.5">
             <label className="text-xs font-semibold text-slate-500 whitespace-nowrap">To</label>
-            <DatePickerButton
-              value={toDate}
-              onChange={setToDate}
-              placeholder="End date"
-              testId="input-to-date"
-            />
+            <DatePickerButton value={toDate} onChange={setToDate} placeholder="End date" testId="input-to-date" />
           </div>
 
-          {(fromDate || toDate) && (
+          <Select value={filterMode} onValueChange={setFilterMode}>
+            <SelectTrigger className="h-9 w-44" data-testid="filter-payment-mode">
+              <CreditCard className="h-3.5 w-3.5 text-slate-400 mr-1 shrink-0" />
+              <SelectValue placeholder="All Accounts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All Accounts</SelectItem>
+              {PAYMENT_MODES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
+          {(fromDate || toDate || filterMode) && (
             <button
-              onClick={() => { setFromDate(""); setToDate(""); }}
+              onClick={() => { setFromDate(""); setToDate(""); setFilterMode(""); }}
               className="text-xs text-slate-400 hover:text-slate-700 underline"
             >
-              Clear
+              Clear filters
             </button>
           )}
 
-          {(fromDate || toDate || searchQuery) && (
+          {(fromDate || toDate || searchQuery || filterMode) && (
             <span className="text-xs text-primary font-semibold ml-auto">
               {filteredExpenses.length} result{filteredExpenses.length !== 1 ? "s" : ""} — ₹{fmtINR(filteredTotal)}
             </span>
@@ -403,7 +455,7 @@ export default function ExpensesPage() {
               <IndianRupee className="h-7 w-7 text-slate-400" />
             </div>
             <p className="text-muted-foreground font-medium">
-              {searchQuery || fromDate || toDate ? "No expenses match your filters." : "No expenses yet. Click \"Add Expense\" to get started."}
+              {searchQuery || fromDate || toDate || filterMode ? "No expenses match your filters." : "No expenses yet. Click \"Add Expense\" to get started."}
             </p>
           </div>
         ) : (
@@ -414,6 +466,7 @@ export default function ExpensesPage() {
                   <TableHead className="font-bold text-slate-700">Date</TableHead>
                   <TableHead className="font-bold text-slate-700">Expense Name</TableHead>
                   <TableHead className="font-bold text-slate-700">Category</TableHead>
+                  <TableHead className="font-bold text-slate-700">Payment Mode</TableHead>
                   <TableHead className="font-bold text-slate-700">Details</TableHead>
                   <TableHead className="font-bold text-slate-700 text-right">Amount</TableHead>
                   <TableHead className="font-bold text-slate-700 text-right">Actions</TableHead>
@@ -432,6 +485,9 @@ export default function ExpensesPage() {
                       ) : (
                         <span className="text-slate-400 text-xs">—</span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <PaymentModeBadge mode={expense.paymentMode} />
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
                       {expense.details || <span className="text-slate-300">—</span>}
@@ -479,7 +535,6 @@ export default function ExpensesPage() {
                 ))}
               </TableBody>
             </Table>
-            {/* Table footer totals */}
             <div className="flex justify-between items-center px-4 py-3 border-t bg-slate-50">
               <span className="text-sm text-muted-foreground">
                 {filteredExpenses.length} expense{filteredExpenses.length !== 1 ? "s" : ""}

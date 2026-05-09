@@ -15,6 +15,7 @@ import {
   Building2,
   Wallet,
   BarChart2,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
@@ -35,6 +36,7 @@ const navItems = [
   { icon: Building2, label: "Vendor Management", href: "/vendor-management" },
   { icon: Wallet, label: "Expenses", href: "/expenses" },
   { icon: BarChart2, label: "Analytics", href: "/analytics" },
+  { icon: Shield, label: "Warranty", href: "/warranty" },
   { icon: Settings, label: "Settings", href: "/settings" },
 ];
 

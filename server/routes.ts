@@ -864,6 +864,44 @@ app.use((req, res, next) => {
     res.json({ message: "Expense deleted" });
   });
 
+  // ── Warranty Follow-up Routes ─────────────────────────────────────────────
+  app.get("/api/warranty-followups", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    const docs = await storage.getWarrantyFollowUps();
+    res.json(docs);
+  });
+
+  app.get("/api/warranty-followups/:id", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    const doc = await storage.getWarrantyFollowUp(req.params.id);
+    if (!doc) return res.status(404).json({ message: "Not found" });
+    res.json(doc);
+  });
+
+  app.post("/api/warranty-followups", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    try {
+      const doc = await storage.createWarrantyFollowUp(req.body);
+      res.status(201).json(doc);
+    } catch (e: any) {
+      res.status(400).json({ message: e.message || "Invalid input" });
+    }
+  });
+
+  app.patch("/api/warranty-followups/:id", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    const doc = await storage.updateWarrantyFollowUp(req.params.id, req.body);
+    if (!doc) return res.status(404).json({ message: "Not found" });
+    res.json(doc);
+  });
+
+  app.delete("/api/warranty-followups/:id", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    const ok = await storage.deleteWarrantyFollowUp(req.params.id);
+    if (!ok) return res.status(404).json({ message: "Not found" });
+    res.json({ message: "Deleted" });
+  });
+
   // Migration: Re-number all existing invoices in new format AG-YYYY-MM-DD-NN
   app.post("/api/admin/migrate-invoice-numbers", async (req, res) => {
     if (!(req.session as any).userId) return res.sendStatus(401);
