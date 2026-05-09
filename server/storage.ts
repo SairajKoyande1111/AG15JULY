@@ -761,6 +761,7 @@ export class MongoStorage implements IStorage {
       price: e.price,
       date: e.date,
       category: (e as any).category || "",
+      paymentMode: (e as any).paymentMode || "",
       createdAt: (e as any).createdAt || new Date().toISOString(),
     }));
   }
@@ -775,6 +776,7 @@ export class MongoStorage implements IStorage {
       price: e.price,
       date: e.date,
       category: (e as any).category || "",
+      paymentMode: (e as any).paymentMode || "",
       createdAt: (e as any).createdAt || new Date().toISOString(),
     };
   }
@@ -789,6 +791,7 @@ export class MongoStorage implements IStorage {
       price: e.price,
       date: e.date,
       category: (e as any).category || "",
+      paymentMode: (e as any).paymentMode || "",
       createdAt: (e as any).createdAt || new Date().toISOString(),
     };
   }
@@ -803,6 +806,7 @@ export class MongoStorage implements IStorage {
       price: e.price,
       date: e.date,
       category: (e as any).category || "",
+      paymentMode: (e as any).paymentMode || "",
       createdAt: (e as any).createdAt || new Date().toISOString(),
     };
   }
