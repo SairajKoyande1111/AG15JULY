@@ -873,7 +873,10 @@ function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormP
                   onChange={e => {
                     const entered = Number(e.target.value);
                     const otherTotal = paymentRecords.reduce((s, r, idx) => idx === i ? s : s + (Number(r.amount) || 0), 0);
-                    const maxAllowed = Math.max(0, total - otherTotal);
+                    const hardMax = total - otherTotal;
+                    const maxAllowed = paymentStatus === "partially_paid"
+                      ? Math.max(0, hardMax - 1)
+                      : Math.max(0, hardMax);
                     const capped = Math.min(entered, maxAllowed);
                     updatePaymentRecord(i, "amount", capped);
                   }}
@@ -1102,6 +1105,9 @@ function VendorDetailView({ vendor, purchases, onBack, onEdit, onDelete, onAddPu
     mutationFn: (id: string) => apiRequest("DELETE", `/api/vendor-purchases/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/vendor-purchases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/masters/ppf"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/masters/accessories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/masters/accessory-categories"] });
       toast({ title: "Purchase deleted" });
     },
   });
@@ -1614,6 +1620,9 @@ export default function VendorManagementPage() {
     mutationFn: (id: string) => apiRequest("DELETE", `/api/vendor-purchases/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/vendor-purchases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/masters/ppf"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/masters/accessories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/masters/accessory-categories"] });
       toast({ title: "Purchase deleted" });
     },
   });
