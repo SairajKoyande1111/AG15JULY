@@ -53,11 +53,19 @@ function formatDate(dateStr: string) {
 function formatCurrency(amount: number) {
   return `₹${amount.toLocaleString("en-IN")}`;
 }
+function getItemCost(item: any): number {
+  if (item.itemType === "Accessory") return (Number(item.unitPrice) || 0) * (Number(item.quantity) || 1);
+  return Number(item.unitPrice) || 0;
+}
+function getItemSellTotal(item: any): number {
+  if (item.itemType === "Accessory") return (Number(item.sellingPrice) || 0) * (Number(item.quantity) || 1);
+  return Number(item.sellingPrice) || 0;
+}
 function getPurchaseCost(p: any): number {
-  return (p.items || []).reduce((sum: number, item: any) => sum + (Number(item.unitPrice) || 0), 0);
+  return (p.items || []).reduce((sum: number, item: any) => sum + getItemCost(item), 0);
 }
 function getSellingTotal(p: any): number {
-  return (p.items || []).reduce((sum: number, item: any) => sum + (Number(item.sellingPrice) || 0), 0);
+  return (p.items || []).reduce((sum: number, item: any) => sum + getItemSellTotal(item), 0);
 }
 
 // ─── HSN Combobox ─────────────────────────────────────────────────────────────
@@ -514,28 +522,62 @@ function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes,
           </div>
         </div>
 
-        {/* Row B: Unit Price + Sell Price + Calculated amounts */}
-        <div className="grid grid-cols-[1fr_1fr_auto] gap-4 items-end">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Unit Price (₹) — Cost</label>
-            <Input data-testid={`input-item-price-${idx}`} className="h-9 text-sm"
-              type="number" min={0} placeholder="0" value={item.unitPrice}
-              onChange={e => onChange(idx, { ...item, unitPrice: Number(e.target.value) })} />
+        {/* Row B: Pricing — Accessory shows per-unit with computed totals; PPF keeps as-is */}
+        {item.itemType === "Accessory" ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Unit Price (₹)</label>
+                <Input data-testid={`input-item-price-${idx}`} className="h-9 text-sm"
+                  type="number" min={0} placeholder="0" value={item.unitPrice}
+                  onChange={e => onChange(idx, { ...item, unitPrice: Number(e.target.value) })} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Cost Total</label>
+                <div className="h-9 flex items-center px-3 rounded-md border border-border/40 bg-muted/30 text-sm font-semibold text-foreground">
+                  {formatCurrency((item.unitPrice || 0) * (item.quantity || 0))}
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-emerald-600">Unit Selling Price (₹)</label>
+                <Input data-testid={`input-item-selling-price-${idx}`} className="h-9 text-sm border-emerald-400/60 focus:border-emerald-500"
+                  type="number" min={0} placeholder="0"
+                  value={(item as any).sellingPrice ?? 0}
+                  onChange={e => onChange(idx, { ...item, sellingPrice: Number(e.target.value) })} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-emerald-600">Sell Total</label>
+                <div className="h-9 flex items-center px-3 rounded-md border border-emerald-400/40 bg-emerald-50/40 text-sm font-bold text-emerald-600">
+                  {formatCurrency(((item as any).sellingPrice || 0) * (item.quantity || 0))}
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-emerald-600">Sell Price (₹) — Revenue</label>
-            <Input data-testid={`input-item-selling-price-${idx}`} className="h-9 text-sm border-emerald-400/60 focus:border-emerald-500 focus:ring-emerald-500/20"
-              type="number" min={0} placeholder="0"
-              value={(item as any).sellingPrice ?? 0}
-              onChange={e => onChange(idx, { ...item, sellingPrice: Number(e.target.value) })} />
+        ) : (
+          <div className="grid grid-cols-[1fr_1fr_auto] gap-4 items-end">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Unit Price (₹) — Cost</label>
+              <Input data-testid={`input-item-price-${idx}`} className="h-9 text-sm"
+                type="number" min={0} placeholder="0" value={item.unitPrice}
+                onChange={e => onChange(idx, { ...item, unitPrice: Number(e.target.value) })} />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-emerald-600">Sell Price (₹) — Revenue</label>
+              <Input data-testid={`input-item-selling-price-${idx}`} className="h-9 text-sm border-emerald-400/60 focus:border-emerald-500 focus:ring-emerald-500/20"
+                type="number" min={0} placeholder="0"
+                value={(item as any).sellingPrice ?? 0}
+                onChange={e => onChange(idx, { ...item, sellingPrice: Number(e.target.value) })} />
+            </div>
+            <div className="pb-0.5 text-right min-w-[100px]">
+              <p className="text-[10px] text-muted-foreground mb-0.5">Cost total</p>
+              <p className="text-sm font-semibold text-foreground">{formatCurrency(item.unitPrice || 0)}</p>
+              <p className="text-[10px] text-emerald-600 mt-1 mb-0.5">Sell total</p>
+              <p className="text-sm font-bold text-emerald-600">{formatCurrency((item as any).sellingPrice || 0)}</p>
+            </div>
           </div>
-          <div className="pb-0.5 text-right min-w-[100px]">
-            <p className="text-[10px] text-muted-foreground mb-0.5">Cost total</p>
-            <p className="text-sm font-semibold text-foreground">{formatCurrency(item.unitPrice || 0)}</p>
-            <p className="text-[10px] text-emerald-600 mt-1 mb-0.5">Sell total</p>
-            <p className="text-sm font-bold text-emerald-600">{formatCurrency((item as any).sellingPrice || 0)}</p>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Vehicle type pricing (new PPF only) */}
@@ -594,10 +636,23 @@ interface PurchaseFormProps {
   onClose: () => void;
 }
 
+const PAYMENT_METHODS = ["Cash", "UPI", "Bank Transfer", "Cheque", "Card", "NEFT/RTGS"];
+
 function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormProps) {
   const { toast } = useToast();
   const [receivedDate, setReceivedDate] = useState(purchase?.receivedDate ?? "");
   const [notes, setNotes] = useState(purchase?.notes ?? "");
+  const [paymentStatus, setPaymentStatus] = useState<"paid" | "partially_paid" | "unpaid">(
+    (purchase as any)?.paymentStatus ?? "unpaid"
+  );
+  const [paymentRecords, setPaymentRecords] = useState<{ method: string; date: string; amount: number }[]>(
+    (purchase as any)?.payments?.length ? (purchase as any).payments : []
+  );
+
+  const addPaymentRecord = () => setPaymentRecords(prev => [...prev, { method: "Cash", date: "", amount: 0 }]);
+  const removePaymentRecord = (i: number) => setPaymentRecords(prev => prev.filter((_, idx) => idx !== i));
+  const updatePaymentRecord = (i: number, field: string, val: string | number) =>
+    setPaymentRecords(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
 
   const emptyItem = (): any => ({
     itemType: "PPF", categoryName: "", name: "", rollName: "", ppfPricing: [], hsnCode: "", quantity: 1, unit: "sqft", unitPrice: 0, sellingPrice: 0,
@@ -618,8 +673,9 @@ function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormP
   const removeItem = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx));
   const updateItem = (idx: number, updated: any) => setItems(prev => prev.map((item, i) => i === idx ? updated : item));
 
-  const total = items.reduce((sum, i) => sum + (Number(i.unitPrice) || 0), 0);
-  const sellingTotal = items.reduce((sum, i) => sum + (Number(i.sellingPrice) || 0), 0);
+  const total = items.reduce((sum, i) => sum + getItemCost(i), 0);
+  const sellingTotal = items.reduce((sum, i) => sum + getItemSellTotal(i), 0);
+  const paidTotal = paymentRecords.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
 
   const invalidateMasters = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/masters/ppf"] });
@@ -653,6 +709,10 @@ function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormP
       toast({ title: "Error", description: "Add at least one item", variant: "destructive" });
       return;
     }
+    if (paidTotal > total) {
+      toast({ title: "Error", description: "Total payments cannot exceed purchase cost", variant: "destructive" });
+      return;
+    }
     const payload = {
       vendorId,
       vendorName,
@@ -663,6 +723,8 @@ function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormP
       notes,
       totalAmount: total,
       sellingTotal,
+      paymentStatus,
+      payments: paymentStatus === "unpaid" ? [] : paymentRecords.filter(r => r.amount > 0),
     };
     if (purchase) updateMutation.mutate(payload); else createMutation.mutate(payload);
   };
@@ -734,6 +796,99 @@ function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormP
             placeholder="e.g. Delivery in 3 days..."
           />
         </div>
+      </div>
+
+      {/* Payment Section */}
+      <div className="space-y-4 pt-1 border-t border-border/40">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">Payment</h3>
+          <div className="flex items-center gap-1.5 p-1 bg-muted/50 rounded-lg">
+            {(["paid", "partially_paid", "unpaid"] as const).map(s => (
+              <button
+                key={s}
+                type="button"
+                data-testid={`button-payment-status-${s}`}
+                onClick={() => setPaymentStatus(s)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  paymentStatus === s
+                    ? s === "paid" ? "bg-emerald-600 text-white shadow-sm"
+                      : s === "partially_paid" ? "bg-amber-500 text-white shadow-sm"
+                      : "bg-muted-foreground/80 text-white shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background"
+                }`}
+              >
+                {s === "paid" ? "Paid" : s === "partially_paid" ? "Partially Paid" : "Unpaid"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {paymentStatus !== "unpaid" && (
+          <div className="space-y-3">
+            {paymentRecords.length === 0 && (
+              <p className="text-xs text-muted-foreground italic">No payment records yet. Add one below.</p>
+            )}
+            {paymentRecords.map((record, i) => (
+              <div key={i} className="grid grid-cols-[1fr_160px_140px_auto] gap-2 items-center">
+                <Select value={record.method} onValueChange={v => updatePaymentRecord(i, "method", v)}>
+                  <SelectTrigger data-testid={`select-payment-method-${i}`} className="h-9 text-sm">
+                    <SelectValue placeholder="Payment method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.map(m => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  data-testid={`input-payment-date-${i}`}
+                  type="date"
+                  value={record.date}
+                  onChange={e => updatePaymentRecord(i, "date", e.target.value)}
+                  className="h-9 text-sm"
+                />
+                <Input
+                  data-testid={`input-payment-amount-${i}`}
+                  type="number"
+                  min={0}
+                  placeholder="Amount (₹)"
+                  value={record.amount || ""}
+                  onChange={e => updatePaymentRecord(i, "amount", Number(e.target.value))}
+                  className="h-9 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => removePaymentRecord(i)}
+                  className="h-9 w-9 flex items-center justify-center rounded border border-border/60 text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors flex-shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+
+            <div className="flex items-center justify-between pt-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                data-testid="button-add-payment"
+                onClick={addPaymentRecord}
+              >
+                <Plus className="h-3 w-3 mr-1" /> Add Payment
+              </Button>
+              <div className="text-right text-sm">
+                <span className="text-muted-foreground">Total paid: </span>
+                <span className={`font-bold ${paidTotal > total ? "text-destructive" : "text-foreground"}`}>
+                  {formatCurrency(paidTotal)}
+                </span>
+                <span className="text-muted-foreground"> / {formatCurrency(total)}</span>
+                {paidTotal > total && (
+                  <p className="text-xs text-destructive mt-0.5">Exceeds purchase cost</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex justify-end gap-2">

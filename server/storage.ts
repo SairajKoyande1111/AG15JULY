@@ -336,6 +336,12 @@ const vendorPurchaseMongoSchema = new mongoose.Schema({
   purchaseDate: { type: String, required: true },
   receivedDate: { type: String, default: "" },
   status: { type: String, enum: ["ordered", "received", "partial"], default: "ordered" },
+  paymentStatus: { type: String, enum: ["paid", "partially_paid", "unpaid"], default: "unpaid" },
+  payments: [{
+    method: { type: String, default: "" },
+    date: { type: String, default: "" },
+    amount: { type: Number, default: 0 },
+  }],
   notes: { type: String, default: "" },
   createdAt: { type: String, required: true },
 });
@@ -2438,8 +2444,14 @@ export class MongoStorage implements IStorage {
   }
 
   async createVendorPurchase(purchase: InsertVendorPurchase): Promise<VendorPurchase> {
-    const total = purchase.items.reduce((sum, item) => sum + (item.unitPrice || 0), 0);
-    const sellingTotal = purchase.items.reduce((sum, item) => sum + ((item as any).sellingPrice || 0), 0);
+    const total = purchase.items.reduce((sum, item) => {
+      if ((item as any).itemType === "Accessory") return sum + (item.unitPrice || 0) * (item.quantity || 1);
+      return sum + (item.unitPrice || 0);
+    }, 0);
+    const sellingTotal = purchase.items.reduce((sum, item) => {
+      if ((item as any).itemType === "Accessory") return sum + ((item as any).sellingPrice || 0) * (item.quantity || 1);
+      return sum + ((item as any).sellingPrice || 0);
+    }, 0);
     const p = new VendorPurchaseModel({ ...purchase, totalAmount: total, sellingTotal, createdAt: new Date().toISOString() });
     await p.save();
     return { ...p.toObject(), id: p._id.toString() } as VendorPurchase;
@@ -2447,8 +2459,14 @@ export class MongoStorage implements IStorage {
 
   async updateVendorPurchase(id: string, purchase: Partial<InsertVendorPurchase>): Promise<VendorPurchase | undefined> {
     if (purchase.items) {
-      (purchase as any).totalAmount = purchase.items.reduce((sum, item) => sum + (item.unitPrice || 0), 0);
-      (purchase as any).sellingTotal = purchase.items.reduce((sum, item) => sum + ((item as any).sellingPrice || 0), 0);
+      (purchase as any).totalAmount = purchase.items.reduce((sum, item) => {
+        if ((item as any).itemType === "Accessory") return sum + (item.unitPrice || 0) * (item.quantity || 1);
+        return sum + (item.unitPrice || 0);
+      }, 0);
+      (purchase as any).sellingTotal = purchase.items.reduce((sum, item) => {
+        if ((item as any).itemType === "Accessory") return sum + ((item as any).sellingPrice || 0) * (item.quantity || 1);
+        return sum + ((item as any).sellingPrice || 0);
+      }, 0);
     }
     const p = await VendorPurchaseModel.findByIdAndUpdate(id, purchase, { new: true });
     if (!p) return undefined;

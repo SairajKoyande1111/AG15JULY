@@ -417,9 +417,18 @@ export const purchaseItemSchema = z.object({
   quantity: z.coerce.number().min(0),
   unit: z.string().default("pcs"),
   unitPrice: z.coerce.number().min(0),
+  sellingPrice: z.coerce.number().min(0).default(0),
 });
 
 export type PurchaseItem = z.infer<typeof purchaseItemSchema>;
+
+export const paymentRecordSchema = z.object({
+  method: z.string().default(""),
+  date: z.string().default(""),
+  amount: z.coerce.number().min(0).default(0),
+});
+
+export type PaymentRecord = z.infer<typeof paymentRecordSchema>;
 
 export const vendorPurchaseSchema = z.object({
   id: z.string().optional(),
@@ -427,9 +436,12 @@ export const vendorPurchaseSchema = z.object({
   vendorName: z.string().optional().default(""),
   items: z.array(purchaseItemSchema).default([]),
   totalAmount: z.coerce.number().default(0),
+  sellingTotal: z.coerce.number().default(0),
   purchaseDate: z.string().default(() => new Date().toISOString().split("T")[0]),
   receivedDate: z.string().optional().default(""),
   status: z.enum(["ordered", "received", "partial"]).default("ordered"),
+  paymentStatus: z.enum(["paid", "partially_paid", "unpaid"]).default("unpaid"),
+  payments: z.array(paymentRecordSchema).default([]),
   notes: z.string().optional().default(""),
   createdAt: z.string().default(() => new Date().toISOString()),
 });
