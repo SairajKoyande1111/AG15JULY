@@ -1284,7 +1284,7 @@ function VendorDetailView({ vendor, purchases, onBack, onEdit, onDelete, onAddPu
                   {pagedPurchases.map(p => (
                     <tr data-testid={`row-vendor-purchase-${p.id}`} key={p.id} className="hover:bg-muted/20 transition-colors">
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <p className="text-sm font-medium text-foreground">{p.purchaseDate ? formatDate(p.purchaseDate) : "—"}</p>
+                        <p className="text-sm font-medium text-foreground">{p.receivedDate ? formatDate(p.receivedDate) : p.purchaseDate ? formatDate(p.purchaseDate) : "—"}</p>
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-sm text-muted-foreground">{p.items.length} item{p.items.length !== 1 ? "s" : ""}</span>
