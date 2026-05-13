@@ -359,11 +359,9 @@ interface ItemRowProps {
   vehicleTypes: VehicleType[];
   onChange: (idx: number, item: any) => void;
   onRemove: (idx: number) => void;
-  isExpanded: boolean;
-  onToggle: () => void;
 }
 
-function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes, onChange, onRemove, isExpanded, onToggle }: ItemRowProps) {
+function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes, onChange, onRemove }: ItemRowProps) {
   const [isNewPPF, setIsNewPPF] = useState(false);
   const [isNewCategory, setIsNewCategory] = useState(false);
   const [isNewAccessory, setIsNewAccessory] = useState(false);
@@ -400,49 +398,10 @@ function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes,
     onChange(idx, { ...item, ppfPricing: pricing });
   };
 
-  const itemLabel = item.name
-    ? `${item.itemType}: ${item.name}${(item as any).rollName ? ` — ${(item as any).rollName}` : ""}`
-    : `${item.itemType}: (untitled)`;
-
   return (
-    <div className="rounded-lg border border-border/60 bg-card space-y-0 mb-3 last:mb-0 shadow-sm">
-      {/* Collapsed summary bar — always visible, click to toggle */}
-      <div
-        className="flex items-center justify-between px-4 py-2.5 cursor-pointer select-none"
-        onClick={onToggle}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">
-            {item.itemType}
-          </span>
-          <span className="text-sm font-medium text-foreground truncate">
-            {item.name || <span className="text-muted-foreground italic">Untitled item</span>}
-          </span>
-          {!isExpanded && item.unitPrice > 0 && (
-            <span className="text-xs text-muted-foreground">· {formatCurrency(getItemCost(item))}</span>
-          )}
-        </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          {!isExpanded && (
-            <button
-              type="button"
-              onClick={e => { e.stopPropagation(); onRemove(idx); }}
-              className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-destructive transition-colors"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          )}
-          {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-        </div>
-      </div>
-
-      {!isExpanded && <div className="border-t border-border/40" />}
-
-      {/* Expanded content */}
-      {isExpanded && (
-      <div>
+    <div className="rounded-lg border border-border/60 bg-card shadow-sm">
       {/* Row 1: Type badge + full-width item name + delete */}
-      <div className="flex items-start gap-3 px-4 pt-2 pb-3 border-t border-border/40">
+      <div className="flex items-start gap-3 px-4 pt-4 pb-3">
         <Select
           value={item.itemType}
           onValueChange={v => { setIsNewPPF(false); setIsNewCategory(false); setIsNewAccessory(false); onChange(idx, { ...item, itemType: v as "PPF" | "Accessory", name: "", categoryName: "", unit: v === "Accessory" ? "pcs" : "sqft" }); }}
@@ -665,8 +624,6 @@ function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes,
           </p>
         </div>
       )}
-      </div>
-      )}
     </div>
   );
 }
@@ -811,26 +768,65 @@ function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormP
           </Button>
         </div>
 
-        <div className="space-y-2">
-          {items.map((item, idx) => (
-            <ItemRow
-              key={idx}
-              idx={idx}
-              item={item}
-              ppfMasters={ppfMasters}
-              accessories={accessories}
-              categories={categories}
-              vehicleTypes={vehicleTypes}
-              onChange={updateItem}
-              onRemove={(i) => {
-                removeItem(i);
-                setExpandedItemIdx(prev => prev >= i ? Math.max(0, prev - 1) : prev);
-              }}
-              isExpanded={expandedItemIdx === idx}
-              onToggle={() => setExpandedItemIdx(prev => prev === idx ? -1 : idx)}
-            />
-          ))}
-        </div>
+        {/* Item chips — saved items as pill buttons */}
+        {items.length > 1 && (
+          <div className="flex flex-wrap gap-2">
+            {items.map((item, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => setExpandedItemIdx(idx)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                  expandedItemIdx === idx
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/60 text-foreground border-border/60 hover:bg-muted hover:border-border"
+                }`}
+              >
+                <span className="uppercase text-[10px] font-bold opacity-70">{item.itemType}</span>
+                <span>{item.name || `Item ${idx + 1}`}</span>
+                {item.unitPrice > 0 && (
+                  <span className={`opacity-60 ${expandedItemIdx === idx ? "text-primary-foreground" : "text-muted-foreground"}`}>
+                    · {formatCurrency(getItemCost(item))}
+                  </span>
+                )}
+                <span
+                  onClick={e => {
+                    e.stopPropagation();
+                    removeItem(idx);
+                    setExpandedItemIdx(prev => {
+                      if (prev === idx) return Math.max(0, idx - 1);
+                      if (prev > idx) return prev - 1;
+                      return prev;
+                    });
+                  }}
+                  className={`ml-0.5 rounded-full hover:opacity-100 opacity-50 transition-opacity ${
+                    expandedItemIdx === idx ? "text-primary-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  <X className="h-3 w-3" />
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Active item card — only one shown at a time */}
+        {items[expandedItemIdx] && (
+          <ItemRow
+            key={expandedItemIdx}
+            idx={expandedItemIdx}
+            item={items[expandedItemIdx]}
+            ppfMasters={ppfMasters}
+            accessories={accessories}
+            categories={categories}
+            vehicleTypes={vehicleTypes}
+            onChange={updateItem}
+            onRemove={(i) => {
+              removeItem(i);
+              setExpandedItemIdx(prev => prev >= i ? Math.max(0, prev - 1) : prev);
+            }}
+          />
+        )}
 
         <div className="flex justify-between items-center px-1 pt-3 border-t border-border/60">
           <span className="text-sm text-muted-foreground">{items.filter(i => i.name).length} item(s)</span>
