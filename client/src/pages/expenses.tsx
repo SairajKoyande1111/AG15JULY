@@ -465,7 +465,6 @@ export default function ExpensesPage() {
                 <TableRow className="bg-slate-50">
                   <TableHead className="font-bold text-slate-700">Date</TableHead>
                   <TableHead className="font-bold text-slate-700">Expense Name</TableHead>
-                  <TableHead className="font-bold text-slate-700">Category</TableHead>
                   <TableHead className="font-bold text-slate-700">Payment Mode</TableHead>
                   <TableHead className="font-bold text-slate-700">Details</TableHead>
                   <TableHead className="font-bold text-slate-700 text-right">Amount</TableHead>
@@ -477,15 +476,6 @@ export default function ExpensesPage() {
                   <TableRow key={expense.id} className="hover:bg-slate-50/60" data-testid={`expense-row-${expense.id}`}>
                     <TableCell className="text-sm text-slate-600 whitespace-nowrap">{formatDate(expense.date)}</TableCell>
                     <TableCell className="font-semibold text-slate-800">{expense.name}</TableCell>
-                    <TableCell>
-                      {expense.category ? (
-                        <Badge variant="secondary" className="text-[11px] bg-slate-100 text-slate-600 font-medium">
-                          {expense.category}
-                        </Badge>
-                      ) : (
-                        <span className="text-slate-400 text-xs">—</span>
-                      )}
-                    </TableCell>
                     <TableCell>
                       <PaymentModeBadge mode={expense.paymentMode} />
                     </TableCell>

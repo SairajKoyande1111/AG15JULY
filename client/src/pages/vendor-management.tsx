@@ -359,9 +359,11 @@ interface ItemRowProps {
   vehicleTypes: VehicleType[];
   onChange: (idx: number, item: any) => void;
   onRemove: (idx: number) => void;
+  isExpanded: boolean;
+  onToggle: () => void;
 }
 
-function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes, onChange, onRemove }: ItemRowProps) {
+function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes, onChange, onRemove, isExpanded, onToggle }: ItemRowProps) {
   const [isNewPPF, setIsNewPPF] = useState(false);
   const [isNewCategory, setIsNewCategory] = useState(false);
   const [isNewAccessory, setIsNewAccessory] = useState(false);
@@ -398,10 +400,49 @@ function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes,
     onChange(idx, { ...item, ppfPricing: pricing });
   };
 
+  const itemLabel = item.name
+    ? `${item.itemType}: ${item.name}${(item as any).rollName ? ` — ${(item as any).rollName}` : ""}`
+    : `${item.itemType}: (untitled)`;
+
   return (
     <div className="rounded-lg border border-border/60 bg-card space-y-0 mb-3 last:mb-0 shadow-sm">
+      {/* Collapsed summary bar — always visible, click to toggle */}
+      <div
+        className="flex items-center justify-between px-4 py-2.5 cursor-pointer select-none"
+        onClick={onToggle}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">
+            {item.itemType}
+          </span>
+          <span className="text-sm font-medium text-foreground truncate">
+            {item.name || <span className="text-muted-foreground italic">Untitled item</span>}
+          </span>
+          {!isExpanded && item.unitPrice > 0 && (
+            <span className="text-xs text-muted-foreground">· {formatCurrency(getItemCost(item))}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {!isExpanded && (
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); onRemove(idx); }}
+              className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        </div>
+      </div>
+
+      {!isExpanded && <div className="border-t border-border/40" />}
+
+      {/* Expanded content */}
+      {isExpanded && (
+      <div>
       {/* Row 1: Type badge + full-width item name + delete */}
-      <div className="flex items-start gap-3 px-4 pt-4 pb-3">
+      <div className="flex items-start gap-3 px-4 pt-2 pb-3 border-t border-border/40">
         <Select
           value={item.itemType}
           onValueChange={v => { setIsNewPPF(false); setIsNewCategory(false); setIsNewAccessory(false); onChange(idx, { ...item, itemType: v as "PPF" | "Accessory", name: "", categoryName: "", unit: v === "Accessory" ? "pcs" : "sqft" }); }}
@@ -624,6 +665,8 @@ function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes,
           </p>
         </div>
       )}
+      </div>
+      )}
     </div>
   );
 }
@@ -663,13 +706,20 @@ function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormP
       ? purchase.items.map((i: any) => ({ itemType: "PPF", categoryName: "", rollName: "", ppfPricing: [], hsnCode: "", sellingPrice: 0, ...i }))
       : [emptyItem()]
   );
+  const [expandedItemIdx, setExpandedItemIdx] = useState<number>(0);
 
   const { data: ppfMasters = [] } = useQuery<PPFMaster[]>({ queryKey: ["/api/masters/ppf"] });
   const { data: categories = [] } = useQuery<AccessoryCategory[]>({ queryKey: ["/api/masters/accessory-categories"] });
   const { data: accessories = [] } = useQuery<AccessoryMaster[]>({ queryKey: ["/api/masters/accessories"] });
   const { data: vehicleTypes = [] } = useQuery<VehicleType[]>({ queryKey: ["/api/masters/vehicle-types"] });
 
-  const addItem = () => setItems(prev => [...prev, emptyItem()]);
+  const addItem = () => {
+    setItems(prev => {
+      const next = [...prev, emptyItem()];
+      setExpandedItemIdx(next.length - 1);
+      return next;
+    });
+  };
   const removeItem = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx));
   const updateItem = (idx: number, updated: any) => setItems(prev => prev.map((item, i) => i === idx ? updated : item));
 
@@ -772,7 +822,12 @@ function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormP
               categories={categories}
               vehicleTypes={vehicleTypes}
               onChange={updateItem}
-              onRemove={removeItem}
+              onRemove={(i) => {
+                removeItem(i);
+                setExpandedItemIdx(prev => prev >= i ? Math.max(0, prev - 1) : prev);
+              }}
+              isExpanded={expandedItemIdx === idx}
+              onToggle={() => setExpandedItemIdx(prev => prev === idx ? -1 : idx)}
             />
           ))}
         </div>
@@ -1198,7 +1253,7 @@ function VendorDetailView({ vendor, purchases, onBack, onEdit, onDelete, onAddPu
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-foreground">
-                {vendorPurchases[0] ? formatDate(vendorPurchases[0].purchaseDate || vendorPurchases[0].receivedDate || "") : "—"}
+                {vendorPurchases[0] ? formatDate(vendorPurchases[0].receivedDate || vendorPurchases[0].purchaseDate || "") : "—"}
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">Last Purchase</p>
             </div>
