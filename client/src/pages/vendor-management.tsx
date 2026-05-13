@@ -1249,7 +1249,7 @@ function VendorDetailView({ vendor, purchases, onBack, onEdit, onDelete, onAddPu
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-foreground">
-                {vendorPurchases[0] ? formatDate(vendorPurchases[0].receivedDate || vendorPurchases[0].purchaseDate || "") : "—"}
+                {vendorPurchases[0] ? formatDate(vendorPurchases[0].purchaseDate || "") : "—"}
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">Last Purchase</p>
             </div>
