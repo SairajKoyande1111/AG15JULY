@@ -946,20 +946,20 @@ function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormP
                   data-testid={`input-payment-amount-${i}`}
                   type="number"
                   min={0}
-                  max={total}
+                  max={grandTotal}
                   placeholder="Amount (₹)"
                   value={record.amount || ""}
                   onChange={e => {
                     const entered = Number(e.target.value);
                     const otherTotal = paymentRecords.reduce((s, r, idx) => idx === i ? s : s + (Number(r.amount) || 0), 0);
-                    const hardMax = total - otherTotal;
+                    const hardMax = grandTotal - otherTotal;
                     const maxAllowed = paymentStatus === "partially_paid"
                       ? Math.max(0, hardMax - 1)
                       : Math.max(0, hardMax);
                     const capped = Math.min(entered, maxAllowed);
                     updatePaymentRecord(i, "amount", capped);
                   }}
-                  className={`h-9 text-sm ${record.amount > total ? "border-destructive" : ""}`}
+                  className={`h-9 text-sm ${record.amount > grandTotal ? "border-destructive" : ""}`}
                 />
                 <button
                   type="button"
