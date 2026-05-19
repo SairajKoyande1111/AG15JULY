@@ -333,6 +333,12 @@ const vendorPurchaseMongoSchema = new mongoose.Schema({
   }],
   totalAmount: { type: Number, default: 0 },
   sellingTotal: { type: Number, default: 0 },
+  gstEnabled: { type: Boolean, default: false },
+  cgstPercent: { type: Number, default: 0 },
+  sgstPercent: { type: Number, default: 0 },
+  cgstAmount: { type: Number, default: 0 },
+  sgstAmount: { type: Number, default: 0 },
+  grandTotal: { type: Number, default: 0 },
   purchaseDate: { type: String, required: true },
   receivedDate: { type: String, default: "" },
   status: { type: String, enum: ["ordered", "received", "partial"], default: "ordered" },
@@ -2448,25 +2454,44 @@ export class MongoStorage implements IStorage {
       if ((item as any).itemType === "Accessory") return sum + (item.unitPrice || 0) * (item.quantity || 1);
       return sum + (item.unitPrice || 0);
     }, 0);
-    const sellingTotal = purchase.items.reduce((sum, item) => {
-      if ((item as any).itemType === "Accessory") return sum + ((item as any).sellingPrice || 0) * (item.quantity || 1);
-      return sum + ((item as any).sellingPrice || 0);
-    }, 0);
-    const p = new VendorPurchaseModel({ ...purchase, totalAmount: total, sellingTotal, createdAt: new Date().toISOString() });
+    const gstEnabled = (purchase as any).gstEnabled ?? false;
+    const cgstPercent = (purchase as any).cgstPercent ?? 0;
+    const sgstPercent = (purchase as any).sgstPercent ?? 0;
+    const cgstAmount = gstEnabled ? (total * cgstPercent) / 100 : 0;
+    const sgstAmount = gstEnabled ? (total * sgstPercent) / 100 : 0;
+    const grandTotal = total + cgstAmount + sgstAmount;
+    const p = new VendorPurchaseModel({
+      ...purchase,
+      totalAmount: total,
+      sellingTotal: 0,
+      gstEnabled,
+      cgstPercent,
+      sgstPercent,
+      cgstAmount,
+      sgstAmount,
+      grandTotal,
+      createdAt: new Date().toISOString(),
+    });
     await p.save();
     return { ...p.toObject(), id: p._id.toString() } as VendorPurchase;
   }
 
   async updateVendorPurchase(id: string, purchase: Partial<InsertVendorPurchase>): Promise<VendorPurchase | undefined> {
     if (purchase.items) {
-      (purchase as any).totalAmount = purchase.items.reduce((sum, item) => {
+      const total = purchase.items.reduce((sum, item) => {
         if ((item as any).itemType === "Accessory") return sum + (item.unitPrice || 0) * (item.quantity || 1);
         return sum + (item.unitPrice || 0);
       }, 0);
-      (purchase as any).sellingTotal = purchase.items.reduce((sum, item) => {
-        if ((item as any).itemType === "Accessory") return sum + ((item as any).sellingPrice || 0) * (item.quantity || 1);
-        return sum + ((item as any).sellingPrice || 0);
-      }, 0);
+      (purchase as any).totalAmount = total;
+      (purchase as any).sellingTotal = 0;
+      const gstEnabled = (purchase as any).gstEnabled ?? false;
+      const cgstPercent = (purchase as any).cgstPercent ?? 0;
+      const sgstPercent = (purchase as any).sgstPercent ?? 0;
+      const cgstAmount = gstEnabled ? (total * cgstPercent) / 100 : 0;
+      const sgstAmount = gstEnabled ? (total * sgstPercent) / 100 : 0;
+      (purchase as any).cgstAmount = cgstAmount;
+      (purchase as any).sgstAmount = sgstAmount;
+      (purchase as any).grandTotal = total + cgstAmount + sgstAmount;
     }
     const p = await VendorPurchaseModel.findByIdAndUpdate(id, purchase, { new: true });
     if (!p) return undefined;

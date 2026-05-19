@@ -1422,8 +1422,8 @@ function VendorDetailView({ vendor, purchases, onBack, onEdit, onDelete, onAddPu
             </DialogHeader>
 
             <div className="space-y-5 pt-1">
-              {/* Meta: Vendor + Received Date + totals — all in one horizontal row */}
-              <div className="grid grid-cols-4 divide-x divide-border/40 border border-border/50 rounded-xl overflow-hidden">
+              {/* Meta: Vendor + Received Date + Purchase Cost */}
+              <div className="grid grid-cols-3 divide-x divide-border/40 border border-border/50 rounded-xl overflow-hidden">
                 <div className="px-4 py-3">
                   <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Vendor</p>
                   <p className="text-sm font-semibold text-foreground">{vendor.name}</p>
@@ -1436,16 +1436,6 @@ function VendorDetailView({ vendor, purchases, onBack, onEdit, onDelete, onAddPu
                   <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Purchase Cost</p>
                   <p className="text-sm font-bold text-foreground">{formatCurrency(getPurchaseCost(viewingPurchase))}</p>
                 </div>
-                {(viewingPurchase as any).gstEnabled && (
-                  <div className="px-4 py-3">
-                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Grand Total (incl. GST)</p>
-                    <p className="text-sm font-bold text-foreground">{formatCurrency((viewingPurchase as any).grandTotal || getPurchaseCost(viewingPurchase))}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {(viewingPurchase as any).cgstPercent > 0 && `CGST ${(viewingPurchase as any).cgstPercent}% + `}
-                      {(viewingPurchase as any).sgstPercent > 0 && `SGST ${(viewingPurchase as any).sgstPercent}%`}
-                    </p>
-                  </div>
-                )}
               </div>
 
               {/* Items — split by type */}
@@ -1567,6 +1557,37 @@ function VendorDetailView({ vendor, purchases, onBack, onEdit, onDelete, onAddPu
                   </div>
                 );
               })()}
+
+              {/* GST Breakdown */}
+              {(viewingPurchase as any).gstEnabled && (
+                <div className="rounded-xl border border-border/60 overflow-hidden">
+                  <div className="bg-muted/40 border-b border-border/40 px-4 py-2">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">GST Breakdown</p>
+                  </div>
+                  <div className="px-4 py-3 space-y-2 text-sm">
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Base Amount</span>
+                      <span className="font-medium text-foreground">{formatCurrency(getPurchaseCost(viewingPurchase))}</span>
+                    </div>
+                    {(viewingPurchase as any).cgstPercent > 0 && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>CGST ({(viewingPurchase as any).cgstPercent}%)</span>
+                        <span className="font-medium text-foreground">{formatCurrency((viewingPurchase as any).cgstAmount || 0)}</span>
+                      </div>
+                    )}
+                    {(viewingPurchase as any).sgstPercent > 0 && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>SGST ({(viewingPurchase as any).sgstPercent}%)</span>
+                        <span className="font-medium text-foreground">{formatCurrency((viewingPurchase as any).sgstAmount || 0)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold text-foreground border-t border-border/60 pt-2 mt-1 text-base">
+                      <span>Grand Total (incl. GST)</span>
+                      <span>{formatCurrency((viewingPurchase as any).grandTotal || getPurchaseCost(viewingPurchase))}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Notes */}
               {viewingPurchase.notes && (
