@@ -1410,53 +1410,51 @@ export default function AddJobPage() {
             {/* Vehicle Information Section */}
             <Card className="border-slate-200">
               <CardHeader className="border-b bg-slate-50/50 py-4 px-6">
-                <div className="flex items-center gap-2">
-                  <Car className="h-5 w-5 text-red-600" />
-                  <CardTitle className="text-lg font-bold">Vehicle Information</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="p-6 space-y-4">
-                {/* Vehicle selector — shown only when existing customer has registered vehicles */}
-                {!jobId && fetchedCustomerVehicles.length > 0 && (
-                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-2">
-                    <p className="text-sm font-semibold text-blue-800">
-                      {fetchedCustomerVehicles.length === 1
-                        ? "Registered vehicle found — select or add a new one"
-                        : `${fetchedCustomerVehicles.length} registered vehicles found — select one or add new`}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {fetchedCustomerVehicles.map((v, idx) => {
-                        const key = `${v.make}-${v.model}-${v.licensePlate}`;
-                        const isSelected = selectedVehicleKey === key;
-                        return (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => {
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Car className="h-5 w-5 text-red-600" />
+                    <CardTitle className="text-lg font-bold">Vehicle Information</CardTitle>
+                  </div>
+                  {/* Inline vehicle selector — only for new job cards when customer exists */}
+                  {!jobId && fetchedCustomerVehicles.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={selectedVehicleKey}
+                        onChange={(e) => {
+                          const key = e.target.value;
+                          if (key === "__new__") {
+                            setSelectedVehicleKey("__new__");
+                            form.setValue("make", "");
+                            form.setValue("model", "");
+                            form.setValue("year", "");
+                            form.setValue("licensePlate", "");
+                            form.setValue("vehicleType", "");
+                          } else {
+                            const v = fetchedCustomerVehicles.find(
+                              (v) => `${v.make}-${v.model}-${v.licensePlate}` === key
+                            );
+                            if (v) {
                               setSelectedVehicleKey(key);
                               form.setValue("make", v.make);
                               form.setValue("model", v.model);
                               form.setValue("year", v.year);
                               form.setValue("licensePlate", v.licensePlate);
                               form.setValue("vehicleType", v.vehicleType);
-                            }}
-                            className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
-                              isSelected
-                                ? "border-blue-600 bg-blue-600 text-white"
-                                : "border-blue-300 bg-white text-blue-700 hover:bg-blue-100"
-                            }`}
-                          >
-                            <Car className="h-4 w-4 shrink-0" />
-                            <span>
-                              {v.make} {v.model}
-                              {v.year ? ` (${v.year})` : ""}
-                              {" · "}
-                              <span className="uppercase">{v.licensePlate}</span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                      {/* New Vehicle option */}
+                            }
+                          }
+                        }}
+                        className="h-9 rounded-md border border-red-200 bg-white px-3 pr-8 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 appearance-none cursor-pointer"
+                        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23dc2626' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center", paddingRight: "28px" }}
+                      >
+                        {fetchedCustomerVehicles.map((v, idx) => {
+                          const key = `${v.make}-${v.model}-${v.licensePlate}`;
+                          return (
+                            <option key={idx} value={key}>
+                              {v.make} {v.model}{v.year ? ` (${v.year})` : ""} · {v.licensePlate.toUpperCase()}
+                            </option>
+                          );
+                        })}
+                      </select>
                       <button
                         type="button"
                         onClick={() => {
@@ -1467,20 +1465,19 @@ export default function AddJobPage() {
                           form.setValue("licensePlate", "");
                           form.setValue("vehicleType", "");
                         }}
-                        className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                        className={`h-9 px-3 rounded-md border text-sm font-semibold transition-colors whitespace-nowrap ${
                           selectedVehicleKey === "__new__"
-                            ? "border-green-600 bg-green-600 text-white"
-                            : "border-green-400 bg-white text-green-700 hover:bg-green-50"
+                            ? "bg-red-600 border-red-600 text-white"
+                            : "border-red-300 text-red-600 bg-white hover:bg-red-50"
                         }`}
                       >
-                        <span>+ New Vehicle</span>
+                        + New
                       </button>
                     </div>
-                    {selectedVehicleKey === "__new__" && (
-                      <p className="text-xs text-green-700 font-medium">Enter the new vehicle details below. It will be registered when the job card is saved.</p>
-                    )}
-                  </div>
-                )}
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="p-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                   <FormField
                     control={form.control}
