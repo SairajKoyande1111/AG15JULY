@@ -179,6 +179,10 @@ export default function AddJobPage() {
 
   const [hasPrefilled, setHasPrefilled] = useState(false);
   const [isFetchingCustomer, setIsFetchingCustomer] = useState(false);
+  const [fetchedCustomerVehicles, setFetchedCustomerVehicles] = useState<Array<{
+    make: string; model: string; year: string; licensePlate: string; vehicleType: string;
+  }>>([]);
+  const [selectedVehicleKey, setSelectedVehicleKey] = useState<string>("");
 
   const form = useForm<JobCardFormValues>({
     resolver: zodResolver(jobCardSchema),
@@ -211,26 +215,52 @@ export default function AddJobPage() {
       setIsFetchingCustomer(true);
       fetch(`/api/customers/by-phone/${phoneNumber}`)
         .then(res => {
-          if (res.ok) {
-            return res.json();
-          }
+          if (res.ok) return res.json();
           throw new Error("Not found");
         })
         .then(customer => {
           if (customer) {
             form.setValue("customerName", customer.customerName || "");
             form.setValue("emailAddress", customer.emailAddress || "");
-            form.setValue("make", customer.make || "");
-            form.setValue("model", customer.model || "");
-            form.setValue("year", customer.year || "");
-            form.setValue("licensePlate", customer.licensePlate || "");
-            form.setValue("vehicleType", customer.vehicleType || "");
+
+            const vehicles: Array<{ make: string; model: string; year: string; licensePlate: string; vehicleType: string }> =
+              customer.vehicles && customer.vehicles.length > 0
+                ? customer.vehicles
+                : [{ make: customer.make || "", model: customer.model || "", year: customer.year || "", licensePlate: customer.licensePlate || "", vehicleType: customer.vehicleType || "" }];
+
+            setFetchedCustomerVehicles(vehicles);
+
+            if (vehicles.length === 1) {
+              // Only one vehicle — auto-fill as before
+              const v = vehicles[0];
+              form.setValue("make", v.make);
+              form.setValue("model", v.model);
+              form.setValue("year", v.year);
+              form.setValue("licensePlate", v.licensePlate);
+              form.setValue("vehicleType", v.vehicleType);
+              setSelectedVehicleKey(`${v.make}-${v.model}-${v.licensePlate}`);
+            } else {
+              // Multiple vehicles — show selector, auto-select the most recent one
+              const v = vehicles[0];
+              form.setValue("make", v.make);
+              form.setValue("model", v.model);
+              form.setValue("year", v.year);
+              form.setValue("licensePlate", v.licensePlate);
+              form.setValue("vehicleType", v.vehicleType);
+              setSelectedVehicleKey(`${v.make}-${v.model}-${v.licensePlate}`);
+            }
           }
         })
         .catch(() => {
-          // Customer not found - allow user to enter new data
+          // Customer not found — allow user to enter new data
+          setFetchedCustomerVehicles([]);
+          setSelectedVehicleKey("");
         })
         .finally(() => setIsFetchingCustomer(false));
+    } else if (!phoneNumber || phoneNumber.length < 10) {
+      // Phone cleared or incomplete — reset vehicle selector
+      setFetchedCustomerVehicles([]);
+      setSelectedVehicleKey("");
     }
   }, [form.watch("phoneNumber"), form]);
 
@@ -1386,6 +1416,71 @@ export default function AddJobPage() {
                 </div>
               </CardHeader>
               <CardContent className="p-6 space-y-4">
+                {/* Vehicle selector — shown only when existing customer has registered vehicles */}
+                {!jobId && fetchedCustomerVehicles.length > 0 && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-2">
+                    <p className="text-sm font-semibold text-blue-800">
+                      {fetchedCustomerVehicles.length === 1
+                        ? "Registered vehicle found — select or add a new one"
+                        : `${fetchedCustomerVehicles.length} registered vehicles found — select one or add new`}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {fetchedCustomerVehicles.map((v, idx) => {
+                        const key = `${v.make}-${v.model}-${v.licensePlate}`;
+                        const isSelected = selectedVehicleKey === key;
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              setSelectedVehicleKey(key);
+                              form.setValue("make", v.make);
+                              form.setValue("model", v.model);
+                              form.setValue("year", v.year);
+                              form.setValue("licensePlate", v.licensePlate);
+                              form.setValue("vehicleType", v.vehicleType);
+                            }}
+                            className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                              isSelected
+                                ? "border-blue-600 bg-blue-600 text-white"
+                                : "border-blue-300 bg-white text-blue-700 hover:bg-blue-100"
+                            }`}
+                          >
+                            <Car className="h-4 w-4 shrink-0" />
+                            <span>
+                              {v.make} {v.model}
+                              {v.year ? ` (${v.year})` : ""}
+                              {" · "}
+                              <span className="uppercase">{v.licensePlate}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                      {/* New Vehicle option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedVehicleKey("__new__");
+                          form.setValue("make", "");
+                          form.setValue("model", "");
+                          form.setValue("year", "");
+                          form.setValue("licensePlate", "");
+                          form.setValue("vehicleType", "");
+                        }}
+                        className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                          selectedVehicleKey === "__new__"
+                            ? "border-green-600 bg-green-600 text-white"
+                            : "border-green-400 bg-white text-green-700 hover:bg-green-50"
+                        }`}
+                      >
+                        <span>+ New Vehicle</span>
+                      </button>
+                    </div>
+                    {selectedVehicleKey === "__new__" && (
+                      <p className="text-xs text-green-700 font-medium">Enter the new vehicle details below. It will be registered when the job card is saved.</p>
+                    )}
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                   <FormField
                     control={form.control}

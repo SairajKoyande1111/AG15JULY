@@ -1036,12 +1036,44 @@ export class MongoStorage implements IStorage {
     }
   }
 
-  async getJobCardsByPhone(phone: string): Promise<JobCard | null> {
+  async getJobCardsByPhone(phone: string): Promise<any | null> {
     try {
-      const jobCard = await JobCardModel.findOne({ phoneNumber: phone })
+      const jobCards = await JobCardModel.find({ phoneNumber: phone })
         .sort({ date: -1 })
         .select('customerName phoneNumber emailAddress make model year licensePlate vehicleType');
-      return jobCard ? jobCard.toObject() : null;
+      
+      if (jobCards.length === 0) return null;
+
+      const latest = jobCards[0];
+
+      // Build unique vehicles list (preserve insertion order = most recently used first)
+      const vehiclesMap = new Map<string, any>();
+      jobCards.forEach(jc => {
+        const key = `${jc.make}-${jc.model}-${jc.licensePlate}`;
+        if (!vehiclesMap.has(key)) {
+          vehiclesMap.set(key, {
+            make: jc.make,
+            model: jc.model,
+            year: jc.year || "",
+            licensePlate: jc.licensePlate,
+            vehicleType: jc.vehicleType || "",
+          });
+        }
+      });
+
+      return {
+        customerName: latest.customerName,
+        phoneNumber: latest.phoneNumber,
+        emailAddress: latest.emailAddress,
+        // Legacy single-vehicle fields (most recent) for backward compatibility
+        make: latest.make,
+        model: latest.model,
+        year: latest.year || "",
+        licensePlate: latest.licensePlate,
+        vehicleType: latest.vehicleType || "",
+        // All unique vehicles ordered by most recently used
+        vehicles: Array.from(vehiclesMap.values()),
+      };
     } catch (error) {
       console.error("Error fetching job card by phone:", error);
       return null;
