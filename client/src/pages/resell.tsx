@@ -482,11 +482,6 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
                     </p>
                   )}
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Price (₹) <span className="text-destructive">*</span></Label>
-                  <Input data-testid="input-unit-price" type="number" min="0" placeholder="0"
-                    value={unitPrice} onChange={e => setUnitPrice(e.target.value)} />
-                </div>
               </div>
 
               <div className="space-y-1.5">

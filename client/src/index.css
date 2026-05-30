@@ -92,3 +92,12 @@
     @apply bg-primary/10 text-primary font-semibold border-r-4 border-primary;
   }
 }
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
