@@ -700,7 +700,10 @@ export class MongoStorage implements IStorage {
       name: s.name,
       hsnCode: (s as any).hsnCode || "",
       pricingByVehicleType: s.pricingByVehicleType as any,
-      rolls: s.rolls as any
+      rolls: (s.rolls as any[]).map((r: any) => ({
+        ...r.toObject?.() ?? r,
+        id: r._id?.toString() ?? r.id,
+      })),
     }));
   }
 
@@ -712,7 +715,10 @@ export class MongoStorage implements IStorage {
       name: s.name,
       hsnCode: (s as any).hsnCode || "",
       pricingByVehicleType: s.pricingByVehicleType as any,
-      rolls: s.rolls as any
+      rolls: (s.rolls as any[]).map((r: any) => ({
+        ...r.toObject?.() ?? r,
+        id: r._id?.toString() ?? r.id,
+      })),
     };
   }
 
@@ -724,7 +730,10 @@ export class MongoStorage implements IStorage {
       name: s.name,
       hsnCode: (s as any).hsnCode || "",
       pricingByVehicleType: s.pricingByVehicleType as any,
-      rolls: s.rolls as any
+      rolls: (s.rolls as any[]).map((r: any) => ({
+        ...r.toObject?.() ?? r,
+        id: r._id?.toString() ?? r.id,
+      })),
     };
   }
 

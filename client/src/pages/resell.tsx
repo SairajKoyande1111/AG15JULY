@@ -449,21 +449,16 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
               {selectedBrandId && (
                 <div className="space-y-1.5">
                   <Label>PPF Roll <span className="text-destructive">*</span></Label>
-                  <Select value={selectedRollId || undefined} onValueChange={handleRollSelect}>
-                    <SelectTrigger data-testid="select-ppf-roll">
-                      <SelectValue placeholder="Select roll…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(selectedBrand?.rolls ?? []).length === 0 && (
-                        <SelectItem value="_none" disabled>No rolls in this brand</SelectItem>
-                      )}
-                      {(selectedBrand?.rolls ?? []).map(r => (
-                        <SelectItem key={r.id} value={r.id!} disabled={r.stock <= 0}>
-                          {r.name} — {r.stock} sqft
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    data-testid="select-ppf-roll"
+                    value={selectedRollId}
+                    onValueChange={handleRollSelect}
+                    placeholder="Select roll…"
+                    searchPlaceholder="Search roll…"
+                    options={(selectedBrand?.rolls ?? [])
+                      .filter(r => r.stock > 0)
+                      .map(r => ({ value: r.id!, label: `${r.name} — ${r.stock} sqft` }))}
+                  />
                   {selectedRoll && (
                     <p className="text-xs text-muted-foreground">
                       Available: <span className={`font-semibold ${selectedRoll.stock <= 10 ? "text-amber-600" : "text-purple-600"}`}>
