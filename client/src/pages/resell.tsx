@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   ShoppingCart, Plus, Search, Package, Layers, ChevronLeft, ChevronRight,
   Trash2, X, AlertTriangle, IndianRupee, Pencil
@@ -304,6 +305,9 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
       if (!selectedBrandId) { toast({ title: "Please select a PPF brand", variant: "destructive" }); return; }
       if (!selectedRollId) { toast({ title: "Please select a PPF roll", variant: "destructive" }); return; }
       if (!sqftVal || sqftVal <= 0) { toast({ title: "Sqft must be greater than 0", variant: "destructive" }); return; }
+      if (selectedRoll && sqftVal > selectedRoll.stock) {
+        toast({ title: `Insufficient stock. Available: ${selectedRoll.stock} sqft`, variant: "destructive" }); return;
+      }
       if (!totalAmountVal || totalAmountVal <= 0) { toast({ title: "Total amount must be greater than 0", variant: "destructive" }); return; }
       mutation.mutate({
         date, buyerName, buyerPhone, itemType,
@@ -474,7 +478,14 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
                 <div className="space-y-1.5">
                   <Label>Sqft to sell <span className="text-destructive">*</span></Label>
                   <Input data-testid="input-sqft" type="number" min="0.1" step="0.1"
-                    placeholder="0.0" value={sqft} onChange={e => setSqft(e.target.value)} />
+                    placeholder="0.0" value={sqft} onChange={e => setSqft(e.target.value)}
+                    className={selectedRoll && sqftVal > selectedRoll.stock ? "border-destructive focus-visible:ring-destructive" : ""} />
+                  {selectedRoll && sqftVal > selectedRoll.stock && (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      Exceeds available stock ({selectedRoll.stock} sqft)
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Price (₹) <span className="text-destructive">*</span></Label>
