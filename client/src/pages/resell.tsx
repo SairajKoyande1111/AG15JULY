@@ -4,10 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import {
   ShoppingCart, Plus, Search, Package, Layers, ChevronLeft, ChevronRight,
-  Trash2, X, AlertTriangle, TrendingUp, IndianRupee, Box, RefreshCw
+  Trash2, X, AlertTriangle, IndianRupee, Pencil
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -225,28 +224,34 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
 
   // Common
   const [unitPrice, setUnitPrice] = useState("");
+  const [totalAmount, setTotalAmount] = useState("");
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [notes, setNotes] = useState("");
 
   const selectedAccessory = accessories.find(a => a.id === selectedAccessoryId);
   const selectedBrand = ppfs.find(p => p.id === selectedBrandId);
-  const selectedRoll = selectedBrand?.rolls?.find(r => r.id === selectedRollId);
+  // Fix: only look up roll when a roll is actually selected
+  const selectedRoll = selectedRollId ? selectedBrand?.rolls?.find(r => r.id === selectedRollId) : undefined;
 
   const qty = parseFloat(quantity) || 0;
   const sqftVal = parseFloat(sqft) || 0;
-  const price = parseFloat(unitPrice) || 0;
-  const totalAmount = itemType === "Accessory" ? qty * price : sqftVal * price;
+  const unitPriceVal = parseFloat(unitPrice) || 0;
+  const totalAmountVal = parseFloat(totalAmount) || 0;
 
-  // Auto-fill unit price from master when item is selected
   const handleAccessorySelect = (id: string) => {
     setSelectedAccessoryId(id);
     const acc = accessories.find(a => a.id === id);
     if (acc) setUnitPrice(acc.price.toString());
   };
 
+  const handleBrandSelect = (v: string) => {
+    setSelectedBrandId(v);
+    setSelectedRollId("");
+    setSqft("");
+  };
+
   const handleRollSelect = (rollId: string) => {
     setSelectedRollId(rollId);
-    setUnitPrice("");
   };
 
   const mutation = useMutation({
@@ -270,13 +275,13 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
     setBuyerName(""); setBuyerPhone("");
     setSelectedAccessoryId(""); setQuantity("");
     setSelectedBrandId(""); setSelectedRollId(""); setSqft("");
-    setUnitPrice(""); setPaymentMode("Cash"); setNotes("");
+    setUnitPrice(""); setTotalAmount(""); setPaymentMode("Cash"); setNotes("");
   };
 
   const handleSubmit = () => {
     if (!buyerName.trim()) { toast({ title: "Buyer name is required", variant: "destructive" }); return; }
     if (!date) { toast({ title: "Date is required", variant: "destructive" }); return; }
-    if (price < 0) { toast({ title: "Unit price cannot be negative", variant: "destructive" }); return; }
+    if (unitPriceVal < 0) { toast({ title: "Unit price cannot be negative", variant: "destructive" }); return; }
 
     if (itemType === "Accessory") {
       if (!selectedAccessoryId) { toast({ title: "Please select an accessory", variant: "destructive" }); return; }
@@ -290,22 +295,26 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
         accessoryId: selectedAccessoryId,
         accessoryName: selectedAccessory?.name ?? "",
         accessoryCategory: selectedAccessory?.category ?? "",
-        quantity: qty, unitPrice: price, totalAmount, paymentMode, notes,
+        quantity: qty,
+        unitPrice: unitPriceVal,
+        totalAmount: totalAmountVal || qty * unitPriceVal,
+        paymentMode, notes,
       });
     } else {
       if (!selectedBrandId) { toast({ title: "Please select a PPF brand", variant: "destructive" }); return; }
       if (!selectedRollId) { toast({ title: "Please select a PPF roll", variant: "destructive" }); return; }
       if (!sqftVal || sqftVal <= 0) { toast({ title: "Sqft must be greater than 0", variant: "destructive" }); return; }
-      if (selectedRoll && sqftVal > selectedRoll.stock) {
-        toast({ title: `Insufficient stock. Available: ${selectedRoll.stock} sqft`, variant: "destructive" }); return;
-      }
+      if (!totalAmountVal || totalAmountVal <= 0) { toast({ title: "Total amount must be greater than 0", variant: "destructive" }); return; }
       mutation.mutate({
         date, buyerName, buyerPhone, itemType,
         ppfBrandId: selectedBrandId,
         ppfBrandName: selectedBrand?.name ?? "",
         ppfRollId: selectedRollId,
         ppfRollName: selectedRoll?.name ?? "",
-        sqft: sqftVal, unitPrice: price, totalAmount, paymentMode, notes,
+        sqft: sqftVal,
+        unitPrice: unitPriceVal,
+        totalAmount: totalAmountVal,
+        paymentMode, notes,
       });
     }
   };
@@ -327,7 +336,11 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
             <div className="grid grid-cols-2 gap-2">
               {(["Accessory", "PPF"] as const).map(t => (
                 <button key={t} data-testid={`button-type-${t}`}
-                  onClick={() => { setItemType(t); setSelectedAccessoryId(""); setSelectedBrandId(""); setSelectedRollId(""); setUnitPrice(""); setQuantity(""); setSqft(""); }}
+                  onClick={() => {
+                    setItemType(t);
+                    setSelectedAccessoryId(""); setSelectedBrandId(""); setSelectedRollId("");
+                    setUnitPrice(""); setTotalAmount(""); setQuantity(""); setSqft("");
+                  }}
                   className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-all flex items-center gap-2
                     ${itemType === t ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}>
                   {t === "Accessory" ? <Package className="h-4 w-4" /> : <Layers className="h-4 w-4" />}
@@ -337,7 +350,7 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
             </div>
           </div>
 
-          {/* Date + Buyer Name */}
+          {/* Date + Phone */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Date <span className="text-destructive">*</span></Label>
@@ -370,14 +383,8 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
                       <SelectItem value="_none" disabled>No accessories in inventory</SelectItem>
                     )}
                     {accessories.map(a => (
-                      <SelectItem key={a.id} value={a.id!}
-                        disabled={a.quantity === 0}>
-                        <div className="flex items-center justify-between gap-4 w-full">
-                          <span>{a.name} <span className="text-xs text-muted-foreground">({a.category})</span></span>
-                          <span className={`text-xs font-semibold ml-2 ${a.quantity === 0 ? "text-red-500" : a.quantity <= 5 ? "text-amber-600" : "text-emerald-600"}`}>
-                            {a.quantity} pcs
-                          </span>
-                        </div>
+                      <SelectItem key={a.id} value={a.id!} disabled={a.quantity === 0}>
+                        {a.name} ({a.category}) — {a.quantity} pcs
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -394,7 +401,6 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
                 <div className="space-y-1.5">
                   <Label>Quantity (pcs) <span className="text-destructive">*</span></Label>
                   <Input data-testid="input-quantity" type="number" min="1"
-                    max={selectedAccessory?.quantity}
                     placeholder="0" value={quantity} onChange={e => setQuantity(e.target.value)} />
                   {selectedAccessory && qty > selectedAccessory.quantity && (
                     <p className="text-xs text-destructive flex items-center gap-1">
@@ -408,6 +414,11 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
                     value={unitPrice} onChange={e => setUnitPrice(e.target.value)} />
                 </div>
               </div>
+              <div className="space-y-1.5">
+                <Label>Total Amount (₹) <span className="text-destructive">*</span></Label>
+                <Input data-testid="input-total-amount" type="number" min="0" placeholder="Enter total amount"
+                  value={totalAmount} onChange={e => setTotalAmount(e.target.value)} />
+              </div>
             </>
           )}
 
@@ -416,7 +427,7 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
             <>
               <div className="space-y-1.5">
                 <Label>PPF Brand <span className="text-destructive">*</span></Label>
-                <Select value={selectedBrandId} onValueChange={v => { setSelectedBrandId(v); setSelectedRollId(""); setUnitPrice(""); setSqft(""); }}>
+                <Select value={selectedBrandId} onValueChange={handleBrandSelect}>
                   <SelectTrigger data-testid="select-ppf-brand">
                     <SelectValue placeholder="Select brand…" />
                   </SelectTrigger>
@@ -424,8 +435,7 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
                     {ppfs.length === 0 && <SelectItem value="_none" disabled>No PPF brands found</SelectItem>}
                     {ppfs.map(p => (
                       <SelectItem key={p.id} value={p.id!}>
-                        {p.name}
-                        <span className="text-xs text-muted-foreground ml-2">({p.rolls?.length ?? 0} rolls)</span>
+                        {p.name} ({p.rolls?.length ?? 0} rolls)
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -445,12 +455,7 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
                       )}
                       {(selectedBrand?.rolls ?? []).map(r => (
                         <SelectItem key={r.id} value={r.id!} disabled={r.stock <= 0}>
-                          <div className="flex items-center justify-between gap-4 w-full">
-                            <span>{r.name}</span>
-                            <span className={`text-xs font-semibold ml-2 ${r.stock <= 0 ? "text-red-500" : r.stock <= 10 ? "text-amber-600" : "text-purple-600"}`}>
-                              {r.stock} sqft
-                            </span>
-                          </div>
+                          {r.name} — {r.stock} sqft
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -469,19 +474,19 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
                 <div className="space-y-1.5">
                   <Label>Sqft to sell <span className="text-destructive">*</span></Label>
                   <Input data-testid="input-sqft" type="number" min="0.1" step="0.1"
-                    max={selectedRoll?.stock}
                     placeholder="0.0" value={sqft} onChange={e => setSqft(e.target.value)} />
-                  {selectedRoll && sqftVal > selectedRoll.stock && (
-                    <p className="text-xs text-destructive flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3" />Exceeds available sqft
-                    </p>
-                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Price per sqft (₹) <span className="text-destructive">*</span></Label>
                   <Input data-testid="input-unit-price" type="number" min="0" placeholder="0"
                     value={unitPrice} onChange={e => setUnitPrice(e.target.value)} />
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Total Amount (₹) <span className="text-destructive">*</span></Label>
+                <Input data-testid="input-total-amount" type="number" min="0" placeholder="Enter total amount"
+                  value={totalAmount} onChange={e => setTotalAmount(e.target.value)} />
               </div>
             </>
           )}
@@ -503,16 +508,6 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
             <Input data-testid="input-notes" placeholder="Any additional notes…" value={notes} onChange={e => setNotes(e.target.value)} />
           </div>
 
-          {/* Total Preview */}
-          {totalAmount > 0 && (
-            <div className="rounded-lg bg-primary/5 border border-primary/20 px-4 py-3 flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
-                {itemType === "Accessory" ? `${qty} pcs × ${formatCurrency(price)}` : `${sqftVal} sqft × ${formatCurrency(price)}/sqft`}
-              </span>
-              <span className="font-bold text-lg text-primary">{formatCurrency(totalAmount)}</span>
-            </div>
-          )}
-
           <Button data-testid="button-create-resell" onClick={handleSubmit} disabled={mutation.isPending}
             className="w-full bg-primary hover:bg-primary/90">
             {mutation.isPending ? "Creating entry…" : "Create Resell Sale"}
@@ -523,10 +518,158 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
   );
 }
 
+// ── EDIT RESELL DIALOG ────────────────────────────────────────────────────────
+function EditResellDialog({ order, onClose }: { order: ResellOrder | null; onClose: () => void }) {
+  const { toast } = useToast();
+  const [date, setDate] = useState(order?.date ?? "");
+  const [buyerName, setBuyerName] = useState(order?.buyerName ?? "");
+  const [buyerPhone, setBuyerPhone] = useState(order?.buyerPhone ?? "");
+  const [quantity, setQuantity] = useState(order?.quantity?.toString() ?? "");
+  const [sqft, setSqft] = useState(order?.sqft?.toString() ?? "");
+  const [unitPrice, setUnitPrice] = useState(order?.unitPrice?.toString() ?? "");
+  const [totalAmount, setTotalAmount] = useState(order?.totalAmount?.toString() ?? "");
+  const [paymentMode, setPaymentMode] = useState(order?.paymentMode ?? "Cash");
+  const [notes, setNotes] = useState(order?.notes ?? "");
+
+  const mutation = useMutation({
+    mutationFn: (data: any) => apiRequest("PATCH", `/api/resell/${order?.id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/resell"] });
+      toast({ title: "Resell entry updated successfully" });
+      onClose();
+    },
+    onError: (err: any) => {
+      toast({ title: err?.message || "Failed to update entry", variant: "destructive" });
+    },
+  });
+
+  const handleSubmit = () => {
+    if (!buyerName.trim()) { toast({ title: "Buyer name is required", variant: "destructive" }); return; }
+    if (!date) { toast({ title: "Date is required", variant: "destructive" }); return; }
+    const totalVal = parseFloat(totalAmount) || 0;
+    if (totalVal <= 0) { toast({ title: "Total amount must be greater than 0", variant: "destructive" }); return; }
+
+    const payload: any = {
+      date, buyerName, buyerPhone,
+      unitPrice: parseFloat(unitPrice) || 0,
+      totalAmount: totalVal,
+      paymentMode, notes,
+    };
+    if (order?.itemType === "Accessory") {
+      payload.quantity = parseInt(quantity) || 0;
+    } else {
+      payload.sqft = parseFloat(sqft) || 0;
+    }
+    mutation.mutate(payload);
+  };
+
+  if (!order) return null;
+
+  return (
+    <Dialog open={!!order} onOpenChange={o => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="h-4 w-4 text-primary" />
+            Edit Resell Sale
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-1">
+          {/* Read-only item info */}
+          <div className="rounded-lg bg-muted/30 border border-border/40 px-4 py-3 space-y-1">
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Item (read-only)</p>
+            {order.itemType === "Accessory" ? (
+              <p className="text-sm font-semibold text-foreground">{order.accessoryName}
+                <span className="text-xs text-muted-foreground font-normal ml-1">({order.accessoryCategory})</span>
+              </p>
+            ) : (
+              <p className="text-sm font-semibold text-foreground">{order.ppfRollName}
+                <span className="text-xs text-muted-foreground font-normal ml-1">· {order.ppfBrandName}</span>
+              </p>
+            )}
+          </div>
+
+          {/* Date + Phone */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Date <span className="text-destructive">*</span></Label>
+              <Input data-testid="edit-input-date" type="date" value={date} onChange={e => setDate(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Buyer Phone</Label>
+              <Input data-testid="edit-input-phone" placeholder="9876543210" maxLength={10}
+                value={buyerPhone} onChange={e => setBuyerPhone(e.target.value.replace(/\D/g, ""))} />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Buyer Name / Company <span className="text-destructive">*</span></Label>
+            <Input data-testid="edit-input-buyer" placeholder="Company or supplier name" value={buyerName}
+              onChange={e => setBuyerName(e.target.value)} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {order.itemType === "Accessory" ? (
+              <div className="space-y-1.5">
+                <Label>Quantity (pcs) <span className="text-destructive">*</span></Label>
+                <Input data-testid="edit-input-qty" type="number" min="1" placeholder="0"
+                  value={quantity} onChange={e => setQuantity(e.target.value)} />
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label>Sqft to sell <span className="text-destructive">*</span></Label>
+                <Input data-testid="edit-input-sqft" type="number" min="0.1" step="0.1" placeholder="0.0"
+                  value={sqft} onChange={e => setSqft(e.target.value)} />
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label>{order.itemType === "Accessory" ? "Unit Price (₹)" : "Price per sqft (₹)"} <span className="text-destructive">*</span></Label>
+              <Input data-testid="edit-input-price" type="number" min="0" placeholder="0"
+                value={unitPrice} onChange={e => setUnitPrice(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Total Amount (₹) <span className="text-destructive">*</span></Label>
+            <Input data-testid="edit-input-total" type="number" min="0" placeholder="Enter total amount"
+              value={totalAmount} onChange={e => setTotalAmount(e.target.value)} />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Payment Mode</Label>
+            <Select value={paymentMode} onValueChange={setPaymentMode}>
+              <SelectTrigger data-testid="edit-select-payment"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PAYMENT_MODES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Notes (optional)</Label>
+            <Input data-testid="edit-input-notes" placeholder="Any additional notes…" value={notes}
+              onChange={e => setNotes(e.target.value)} />
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+            <Button data-testid="button-save-edit" onClick={handleSubmit} disabled={mutation.isPending}
+              className="flex-1 bg-primary hover:bg-primary/90">
+              {mutation.isPending ? "Saving…" : "Save Changes"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── MAIN PAGE ─────────────────────────────────────────────────────────────────
 export default function ResellPage() {
   const { toast } = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editOrder, setEditOrder] = useState<ResellOrder | null>(null);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [filterPayment, setFilterPayment] = useState("all");
@@ -567,10 +710,6 @@ export default function ResellPage() {
   }, [orders, search, filterType, filterPayment]);
 
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  const totalRevenue = filtered.reduce((s, o) => s + o.totalAmount, 0);
-  const accOrders = filtered.filter(o => o.itemType === "Accessory");
-  const ppfOrders = filtered.filter(o => o.itemType === "PPF");
 
   return (
     <Layout>
@@ -687,7 +826,7 @@ export default function ResellPage() {
             paginated.map((order, i) => (
               <div key={order.id}
                 data-testid={`row-resell-${order.id}`}
-                className={`grid grid-cols-12 gap-2 px-5 py-3.5 items-center text-sm group
+                className={`grid grid-cols-12 gap-2 px-5 py-3.5 items-center text-sm
                   ${i < paginated.length - 1 ? "border-b border-border/40" : ""}`}>
 
                 {/* Date */}
@@ -746,9 +885,14 @@ export default function ResellPage() {
                   <p className="text-[10px] text-muted-foreground">{order.paymentMode}</p>
                 </div>
 
-                {/* Delete */}
-                <div className="col-span-1 flex justify-end">
-                  <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                {/* Actions — always visible */}
+                <div className="col-span-1 flex justify-end items-center gap-1">
+                  <Button variant="ghost" size="icon" className="h-7 w-7"
+                    data-testid={`button-edit-${order.id}`}
+                    onClick={() => setEditOrder(order)}>
+                    <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7"
                     data-testid={`button-delete-${order.id}`}
                     onClick={() => { if (confirm("Delete this resell entry?")) deleteMutation.mutate(order.id!); }}>
                     <Trash2 className="h-3.5 w-3.5 text-destructive" />
@@ -767,6 +911,11 @@ export default function ResellPage() {
         onClose={() => setIsCreateOpen(false)}
         accessories={accessories}
         ppfs={ppfs}
+      />
+
+      <EditResellDialog
+        order={editOrder}
+        onClose={() => setEditOrder(null)}
       />
     </Layout>
   );

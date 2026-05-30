@@ -535,6 +535,7 @@ export interface IStorage {
   // Resell Orders
   getResellOrders(): Promise<ResellOrder[]>;
   createResellOrder(order: InsertResellOrder): Promise<ResellOrder>;
+  updateResellOrder(id: string, order: Partial<InsertResellOrder>): Promise<ResellOrder | undefined>;
   deleteResellOrder(id: string): Promise<boolean>;
 
   // Warranty
@@ -2773,6 +2774,12 @@ export class MongoStorage implements IStorage {
   async createResellOrder(order: InsertResellOrder): Promise<ResellOrder> {
     const doc = new ResellOrderModel({ ...order, createdAt: new Date().toISOString() });
     await doc.save();
+    return { ...doc.toObject(), id: doc._id.toString() } as ResellOrder;
+  }
+
+  async updateResellOrder(id: string, order: Partial<InsertResellOrder>): Promise<ResellOrder | undefined> {
+    const doc = await ResellOrderModel.findByIdAndUpdate(id, { $set: order }, { new: true });
+    if (!doc) return undefined;
     return { ...doc.toObject(), id: doc._id.toString() } as ResellOrder;
   }
 

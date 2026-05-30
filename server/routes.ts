@@ -1128,6 +1128,16 @@ app.use((req, res, next) => {
     }
   });
 
+  app.patch("/api/resell/:id", async (req, res) => {
+    try {
+      const order = await storage.updateResellOrder(req.params.id, req.body);
+      if (!order) return res.status(404).json({ message: "Resell order not found" });
+      res.json(order);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
   app.delete("/api/resell/:id", async (req, res) => {
     try {
       const ok = await storage.deleteResellOrder(req.params.id);
