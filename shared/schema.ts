@@ -174,11 +174,61 @@ export const technicianSchema = z.object({
   specialty: z.string().min(1),
   phone: z.string().optional(),
   status: z.enum(["active", "inactive"]).default("active"),
+  monthlySalary: z.number().optional().default(0),
+  joiningDate: z.string().optional().default(""),
 });
 
 export type Technician = z.infer<typeof technicianSchema>;
 export const insertTechnicianSchema = technicianSchema.omit({ id: true });
 export type InsertTechnician = z.infer<typeof insertTechnicianSchema>;
+
+// Technician Salary Records
+export const salaryPaymentEntrySchema = z.object({
+  amount: z.number(),
+  date: z.string(),
+  method: z.string().default("Cash"),
+  notes: z.string().optional().default(""),
+});
+
+export const technicianSalaryRecordSchema = z.object({
+  id: z.string().optional(),
+  technicianId: z.string(),
+  month: z.number().min(1).max(12),
+  year: z.number().min(2000),
+  baseSalary: z.number().default(0),
+  salaryDue: z.number().default(0),
+  paidAmount: z.number().default(0),
+  paymentStatus: z.enum(["paid", "partial", "unpaid"]).default("unpaid"),
+  payments: z.array(salaryPaymentEntrySchema).default([]),
+  notes: z.string().optional().default(""),
+});
+export type TechnicianSalaryRecord = z.infer<typeof technicianSalaryRecordSchema>;
+export const insertTechnicianSalaryRecordSchema = technicianSalaryRecordSchema.omit({ id: true });
+export type InsertTechnicianSalaryRecord = z.infer<typeof insertTechnicianSalaryRecordSchema>;
+
+// Technician Absences
+export const technicianAbsenceSchema = z.object({
+  id: z.string().optional(),
+  technicianId: z.string(),
+  date: z.string(),
+  reason: z.string().optional().default(""),
+});
+export type TechnicianAbsence = z.infer<typeof technicianAbsenceSchema>;
+export const insertTechnicianAbsenceSchema = technicianAbsenceSchema.omit({ id: true });
+export type InsertTechnicianAbsence = z.infer<typeof insertTechnicianAbsenceSchema>;
+
+// Technician Salary Increments
+export const technicianIncrementSchema = z.object({
+  id: z.string().optional(),
+  technicianId: z.string(),
+  previousSalary: z.number(),
+  newSalary: z.number(),
+  effectiveDate: z.string(),
+  notes: z.string().optional().default(""),
+});
+export type TechnicianIncrement = z.infer<typeof technicianIncrementSchema>;
+export const insertTechnicianIncrementSchema = technicianIncrementSchema.omit({ id: true });
+export type InsertTechnicianIncrement = z.infer<typeof insertTechnicianIncrementSchema>;
 
 export const inquiryPrioritySchema = z.enum(["HIGH", "MEDIUM", "LOW"]);
 export type InquiryPriority = z.infer<typeof inquiryPrioritySchema>;

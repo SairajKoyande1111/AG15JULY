@@ -28,6 +28,12 @@ import {
   InsertExpense,
   WarrantyFollowUp,
   InsertWarrantyFollowUp,
+  TechnicianSalaryRecord,
+  InsertTechnicianSalaryRecord,
+  TechnicianAbsence,
+  InsertTechnicianAbsence,
+  TechnicianIncrement,
+  InsertTechnicianIncrement,
 } from "@shared/schema";
 import session from "express-session";
 // @ts-ignore
@@ -141,10 +147,41 @@ const technicianMongoSchema = new mongoose.Schema({
   name: { type: String, required: true },
   specialty: { type: String, required: true },
   phone: { type: String },
-  status: { type: String, enum: ["active", "inactive"], default: "active" }
+  status: { type: String, enum: ["active", "inactive"], default: "active" },
+  monthlySalary: { type: Number, default: 0 },
+  joiningDate: { type: String, default: "" },
 });
 
 export const TechnicianModel = mongoose.model("Technician", technicianMongoSchema);
+
+const technicianSalaryRecordMongoSchema = new mongoose.Schema({
+  technicianId: { type: String, required: true },
+  month: { type: Number, required: true },
+  year: { type: Number, required: true },
+  baseSalary: { type: Number, default: 0 },
+  salaryDue: { type: Number, default: 0 },
+  paidAmount: { type: Number, default: 0 },
+  paymentStatus: { type: String, enum: ["paid", "partial", "unpaid"], default: "unpaid" },
+  payments: [{ amount: Number, date: String, method: String, notes: String }],
+  notes: { type: String, default: "" },
+});
+export const TechnicianSalaryRecordModel = mongoose.model("TechnicianSalaryRecord", technicianSalaryRecordMongoSchema);
+
+const technicianAbsenceMongoSchema = new mongoose.Schema({
+  technicianId: { type: String, required: true },
+  date: { type: String, required: true },
+  reason: { type: String, default: "" },
+});
+export const TechnicianAbsenceModel = mongoose.model("TechnicianAbsence", technicianAbsenceMongoSchema);
+
+const technicianIncrementMongoSchema = new mongoose.Schema({
+  technicianId: { type: String, required: true },
+  previousSalary: { type: Number, required: true },
+  newSalary: { type: Number, required: true },
+  effectiveDate: { type: String, required: true },
+  notes: { type: String, default: "" },
+});
+export const TechnicianIncrementModel = mongoose.model("TechnicianIncrement", technicianIncrementMongoSchema);
 
 const appointmentSchema = new mongoose.Schema({
   customerName: { type: String, required: true },
@@ -398,6 +435,19 @@ export interface IStorage {
   createTechnician(technician: InsertTechnician): Promise<Technician>;
   updateTechnician(id: string, technician: Partial<Technician>): Promise<Technician | undefined>;
   deleteTechnician(id: string): Promise<boolean>;
+  // Technician Salary Records
+  getSalaryRecords(technicianId: string): Promise<TechnicianSalaryRecord[]>;
+  createSalaryRecord(record: InsertTechnicianSalaryRecord): Promise<TechnicianSalaryRecord>;
+  updateSalaryRecord(id: string, record: Partial<InsertTechnicianSalaryRecord>): Promise<TechnicianSalaryRecord | undefined>;
+  deleteSalaryRecord(id: string): Promise<boolean>;
+  // Technician Absences
+  getAbsences(technicianId: string): Promise<TechnicianAbsence[]>;
+  createAbsence(absence: InsertTechnicianAbsence): Promise<TechnicianAbsence>;
+  deleteAbsence(id: string): Promise<boolean>;
+  // Technician Increments
+  getIncrements(technicianId: string): Promise<TechnicianIncrement[]>;
+  createIncrement(increment: InsertTechnicianIncrement): Promise<TechnicianIncrement>;
+  deleteIncrement(id: string): Promise<boolean>;
 
   // User
   updateUser(id: string, data: Partial<User>): Promise<User | undefined>;
@@ -838,43 +888,124 @@ export class MongoStorage implements IStorage {
     return !!result;
   }
 
-  async getTechnicians(): Promise<Technician[]> {
-    const technicians = await TechnicianModel.find();
-    return technicians.map(t => ({
+  private mapTechnician(t: any): Technician {
+    return {
       id: t._id.toString(),
       name: t.name,
       specialty: t.specialty,
       phone: t.phone || undefined,
-      status: t.status as "active" | "inactive"
-    }));
+      status: t.status as "active" | "inactive",
+      monthlySalary: t.monthlySalary ?? 0,
+      joiningDate: t.joiningDate ?? "",
+    };
+  }
+
+  async getTechnicians(): Promise<Technician[]> {
+    const technicians = await TechnicianModel.find();
+    return technicians.map(t => this.mapTechnician(t));
   }
 
   async createTechnician(technician: InsertTechnician): Promise<Technician> {
     const t = new TechnicianModel(technician);
     await t.save();
-    return {
-      id: t._id.toString(),
-      name: t.name,
-      specialty: t.specialty,
-      phone: t.phone || undefined,
-      status: t.status as "active" | "inactive"
-    };
+    return this.mapTechnician(t);
   }
 
   async updateTechnician(id: string, technician: Partial<Technician>): Promise<Technician | undefined> {
     const t = await TechnicianModel.findByIdAndUpdate(id, technician, { new: true });
     if (!t) return undefined;
-    return {
-      id: t._id.toString(),
-      name: t.name,
-      specialty: t.specialty,
-      phone: t.phone || undefined,
-      status: t.status as "active" | "inactive"
-    };
+    return this.mapTechnician(t);
   }
 
   async deleteTechnician(id: string): Promise<boolean> {
     const result = await TechnicianModel.findByIdAndDelete(id);
+    return !!result;
+  }
+
+  private mapSalaryRecord(r: any): TechnicianSalaryRecord {
+    return {
+      id: r._id.toString(),
+      technicianId: r.technicianId,
+      month: r.month,
+      year: r.year,
+      baseSalary: r.baseSalary ?? 0,
+      salaryDue: r.salaryDue ?? 0,
+      paidAmount: r.paidAmount ?? 0,
+      paymentStatus: r.paymentStatus as "paid" | "partial" | "unpaid",
+      payments: r.payments ?? [],
+      notes: r.notes ?? "",
+    };
+  }
+
+  async getSalaryRecords(technicianId: string): Promise<TechnicianSalaryRecord[]> {
+    const records = await TechnicianSalaryRecordModel.find({ technicianId }).sort({ year: -1, month: -1 });
+    return records.map(r => this.mapSalaryRecord(r));
+  }
+
+  async createSalaryRecord(record: InsertTechnicianSalaryRecord): Promise<TechnicianSalaryRecord> {
+    const paidAmount = (record.payments ?? []).reduce((s: number, p: any) => s + (p.amount || 0), 0);
+    const paymentStatus = paidAmount === 0 ? "unpaid" : paidAmount >= record.salaryDue ? "paid" : "partial";
+    const r = new TechnicianSalaryRecordModel({ ...record, paidAmount, paymentStatus });
+    await r.save();
+    return this.mapSalaryRecord(r);
+  }
+
+  async updateSalaryRecord(id: string, record: Partial<InsertTechnicianSalaryRecord>): Promise<TechnicianSalaryRecord | undefined> {
+    const existing = await TechnicianSalaryRecordModel.findById(id);
+    if (!existing) return undefined;
+    const updatedPayments = record.payments ?? existing.payments ?? [];
+    const paidAmount = updatedPayments.reduce((s: number, p: any) => s + (p.amount || 0), 0);
+    const salaryDue = record.salaryDue ?? existing.salaryDue ?? 0;
+    const paymentStatus = paidAmount === 0 ? "unpaid" : paidAmount >= salaryDue ? "paid" : "partial";
+    const r = await TechnicianSalaryRecordModel.findByIdAndUpdate(
+      id, { ...record, paidAmount, paymentStatus }, { new: true }
+    );
+    if (!r) return undefined;
+    return this.mapSalaryRecord(r);
+  }
+
+  async deleteSalaryRecord(id: string): Promise<boolean> {
+    const result = await TechnicianSalaryRecordModel.findByIdAndDelete(id);
+    return !!result;
+  }
+
+  async getAbsences(technicianId: string): Promise<TechnicianAbsence[]> {
+    const absences = await TechnicianAbsenceModel.find({ technicianId }).sort({ date: -1 });
+    return absences.map(a => ({ id: a._id.toString(), technicianId: a.technicianId, date: a.date, reason: a.reason ?? "" }));
+  }
+
+  async createAbsence(absence: InsertTechnicianAbsence): Promise<TechnicianAbsence> {
+    const a = new TechnicianAbsenceModel(absence);
+    await a.save();
+    return { id: a._id.toString(), technicianId: a.technicianId, date: a.date, reason: a.reason ?? "" };
+  }
+
+  async deleteAbsence(id: string): Promise<boolean> {
+    const result = await TechnicianAbsenceModel.findByIdAndDelete(id);
+    return !!result;
+  }
+
+  async getIncrements(technicianId: string): Promise<TechnicianIncrement[]> {
+    const increments = await TechnicianIncrementModel.find({ technicianId }).sort({ effectiveDate: -1 });
+    return increments.map(i => ({
+      id: i._id.toString(), technicianId: i.technicianId,
+      previousSalary: i.previousSalary, newSalary: i.newSalary,
+      effectiveDate: i.effectiveDate, notes: i.notes ?? "",
+    }));
+  }
+
+  async createIncrement(increment: InsertTechnicianIncrement): Promise<TechnicianIncrement> {
+    const i = new TechnicianIncrementModel(increment);
+    await i.save();
+    return {
+      id: i._id.toString(), technicianId: i.technicianId,
+      previousSalary: i.previousSalary, newSalary: i.newSalary,
+      effectiveDate: i.effectiveDate, notes: i.notes ?? "",
+    };
+  }
+
+  async deleteIncrement(id: string): Promise<boolean> {
+    const result = await TechnicianIncrementModel.findByIdAndDelete(id);
     return !!result;
   }
 

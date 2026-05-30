@@ -402,6 +402,81 @@ app.use((req, res, next) => {
     res.json({ message: "Technician deleted" });
   });
 
+  // Technician Salary Records
+  app.get("/api/technicians/:id/salary-records", async (req, res) => {
+    const records = await storage.getSalaryRecords(req.params.id);
+    res.json(records);
+  });
+
+  app.post("/api/technicians/:id/salary-records", async (req, res) => {
+    try {
+      const record = await storage.createSalaryRecord({ ...req.body, technicianId: req.params.id });
+      res.status(201).json(record);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid input" });
+    }
+  });
+
+  app.patch("/api/technicians/:id/salary-records/:recordId", async (req, res) => {
+    try {
+      const record = await storage.updateSalaryRecord(req.params.recordId, req.body);
+      if (!record) return res.status(404).json({ message: "Record not found" });
+      res.json(record);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid input" });
+    }
+  });
+
+  app.delete("/api/technicians/:id/salary-records/:recordId", async (req, res) => {
+    const success = await storage.deleteSalaryRecord(req.params.recordId);
+    if (!success) return res.status(404).json({ message: "Record not found" });
+    res.json({ message: "Deleted" });
+  });
+
+  // Technician Absences
+  app.get("/api/technicians/:id/absences", async (req, res) => {
+    const absences = await storage.getAbsences(req.params.id);
+    res.json(absences);
+  });
+
+  app.post("/api/technicians/:id/absences", async (req, res) => {
+    try {
+      const absence = await storage.createAbsence({ ...req.body, technicianId: req.params.id });
+      res.status(201).json(absence);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid input" });
+    }
+  });
+
+  app.delete("/api/technicians/:id/absences/:absenceId", async (req, res) => {
+    const success = await storage.deleteAbsence(req.params.absenceId);
+    if (!success) return res.status(404).json({ message: "Absence not found" });
+    res.json({ message: "Deleted" });
+  });
+
+  // Technician Increments
+  app.get("/api/technicians/:id/increments", async (req, res) => {
+    const increments = await storage.getIncrements(req.params.id);
+    res.json(increments);
+  });
+
+  app.post("/api/technicians/:id/increments", async (req, res) => {
+    try {
+      const increment = await storage.createIncrement({ ...req.body, technicianId: req.params.id });
+      // Also update the technician's current monthly salary
+      await storage.updateTechnician(req.params.id, { monthlySalary: req.body.newSalary });
+      res.status(201).json(increment);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid input" });
+    }
+  });
+
+  app.delete("/api/technicians/:id/increments/:incrementId", async (req, res) => {
+    const success = await storage.deleteIncrement(req.params.incrementId);
+    if (!success) return res.status(404).json({ message: "Increment not found" });
+    res.json({ message: "Deleted" });
+  });
+
   // Appointment Routes
   app.get(api.appointments.list.path, async (req, res) => {
     const appointments = await storage.getAppointments();
