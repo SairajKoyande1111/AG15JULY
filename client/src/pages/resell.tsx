@@ -445,7 +445,7 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
               {selectedBrandId && (
                 <div className="space-y-1.5">
                   <Label>PPF Roll <span className="text-destructive">*</span></Label>
-                  <Select value={selectedRollId} onValueChange={handleRollSelect}>
+                  <Select value={selectedRollId || undefined} onValueChange={handleRollSelect}>
                     <SelectTrigger data-testid="select-ppf-roll">
                       <SelectValue placeholder="Select roll…" />
                     </SelectTrigger>
@@ -477,7 +477,7 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
                     placeholder="0.0" value={sqft} onChange={e => setSqft(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Price per sqft (₹) <span className="text-destructive">*</span></Label>
+                  <Label>Price (₹) <span className="text-destructive">*</span></Label>
                   <Input data-testid="input-unit-price" type="number" min="0" placeholder="0"
                     value={unitPrice} onChange={e => setUnitPrice(e.target.value)} />
                 </div>
@@ -914,6 +914,7 @@ export default function ResellPage() {
       />
 
       <EditResellDialog
+        key={editOrder?.id ?? "edit-closed"}
         order={editOrder}
         onClose={() => setEditOrder(null)}
       />
