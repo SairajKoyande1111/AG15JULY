@@ -1407,7 +1407,7 @@ export class MongoStorage implements IStorage {
         const invoiceNo = `${bizPrefix}-${invoiceDateStr}-${nextNumCreate.toString().padStart(2, "0")}`;
 
         // Per-business payments take priority; fall back to single-business global payments
-        const perBizPayCreate = (j as any).perBusinessPayments?.[biz];
+        const perBizPayCreate = (jobCard as any).perBusinessPayments?.[biz];
         let invoicePaymentsCreate: any[] = [];
         let invoiceIsPaidCreate = false;
         if (perBizPayCreate !== undefined) {
@@ -1417,8 +1417,8 @@ export class MongoStorage implements IStorage {
           }
           invoiceIsPaidCreate = amt >= totalAmount;
         } else {
-          const jobPaymentsCreate: any[] = (j as any).payments || [];
-          if ((j as any).isPaid && jobPaymentsCreate.length > 0) {
+          const jobPaymentsCreate: any[] = (jobCard as any).payments || [];
+          if ((jobCard as any).isPaid && jobPaymentsCreate.length > 0) {
             invoicePaymentsCreate = jobPaymentsCreate;
             invoiceIsPaidCreate = true;
           }
@@ -1883,7 +1883,7 @@ export class MongoStorage implements IStorage {
           }
 
           // Per-business payments take priority; fall back to single-business global payments
-          const perBizPayUpdate = (j as any).perBusinessPayments?.[biz];
+          const perBizPayUpdate = (jobCard as any).perBusinessPayments?.[biz];
           let invoicePaymentsUpdate: any[] = [];
           let invoiceIsPaidUpdate = false;
           if (perBizPayUpdate !== undefined) {
@@ -1893,8 +1893,8 @@ export class MongoStorage implements IStorage {
             }
             invoiceIsPaidUpdate = amt >= totalAmount;
           } else {
-            const jobPaymentsUpdate: any[] = (j as any).payments || [];
-            if ((j as any).isPaid && jobPaymentsUpdate.length > 0) {
+            const jobPaymentsUpdate: any[] = (jobCard as any).payments || [];
+            if ((jobCard as any).isPaid && jobPaymentsUpdate.length > 0) {
               invoicePaymentsUpdate = jobPaymentsUpdate;
               invoiceIsPaidUpdate = true;
             }
@@ -1990,7 +1990,7 @@ export class MongoStorage implements IStorage {
           const invoiceNo = `${bizPrefix}-${updateDateStr}-${nextNumUpdate.toString().padStart(2, "0")}`;
 
           // Per-business payments take priority; fall back to single-business global payments
-          const perBizPayNew = (j as any).perBusinessPayments?.[biz];
+          const perBizPayNew = (jobCard as any).perBusinessPayments?.[biz];
           let invoicePaymentsNew: any[] = [];
           let invoiceIsPaidNew = false;
           if (perBizPayNew !== undefined) {
@@ -2000,8 +2000,8 @@ export class MongoStorage implements IStorage {
             }
             invoiceIsPaidNew = amt >= totalAmount;
           } else {
-            const jobPaymentsNew: any[] = (j as any).payments || [];
-            if ((j as any).isPaid && jobPaymentsNew.length > 0) {
+            const jobPaymentsNew: any[] = (jobCard as any).payments || [];
+            if ((jobCard as any).isPaid && jobPaymentsNew.length > 0) {
               invoicePaymentsNew = jobPaymentsNew;
               invoiceIsPaidNew = true;
             }
