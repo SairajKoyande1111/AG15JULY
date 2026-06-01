@@ -314,6 +314,7 @@ function CustomerBalanceRow({
                     <tr className="border-b border-border/40 bg-muted/40">
                       <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Invoice #</th>
                       <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Business</th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
                       <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Types</th>
                       <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Date</th>
                       <th className="px-4 py-2 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total</th>
@@ -323,11 +324,24 @@ function CustomerBalanceRow({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/30">
-                    {invoices.map(inv => (
+                    {invoices.map(inv => {
+                      const isPartial = inv.paidAmount > 0 && inv.balanceAmount > 0;
+                      return (
                       <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
                         <td className="px-4 py-3 font-mono text-xs font-medium text-foreground">{inv.invoiceNo}</td>
                         <td className="px-4 py-3">
                           <Badge variant="outline" className="text-xs font-medium">{inv.business}</Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          {isPartial ? (
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
+                              Partial Paid
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">
+                              Unpaid
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <ItemTypeBadges items={inv.items} />
@@ -335,7 +349,14 @@ function CustomerBalanceRow({
                         <td className="px-4 py-3 text-xs text-muted-foreground">{safeFmt(inv.date)}</td>
                         <td className="px-4 py-3 text-right text-xs font-medium">{formatINR(inv.totalAmount)}</td>
                         <td className="px-4 py-3 text-right text-xs text-emerald-600 font-medium">{formatINR(inv.paidAmount)}</td>
-                        <td className="px-4 py-3 text-right text-sm font-bold text-red-600">{formatINR(inv.balanceAmount)}</td>
+                        <td className="px-4 py-3">
+                          <div className="text-right">
+                            <div className="text-sm font-bold text-red-600">{formatINR(inv.balanceAmount)}</div>
+                            {isPartial && (
+                              <div className="text-[10px] text-muted-foreground">of {formatINR(inv.totalAmount)}</div>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-2">
                             <button
@@ -360,7 +381,8 @@ function CustomerBalanceRow({
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -371,7 +393,14 @@ function CustomerBalanceRow({
                   <div key={inv.id} className="px-4 py-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-xs font-semibold text-foreground">{inv.invoiceNo}</span>
-                      <Badge variant="outline" className="text-xs">{inv.business}</Badge>
+                      <div className="flex items-center gap-1.5">
+                        {inv.paidAmount > 0 && inv.balanceAmount > 0 ? (
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-200">Partial Paid</span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">Unpaid</span>
+                        )}
+                        <Badge variant="outline" className="text-xs">{inv.business}</Badge>
+                      </div>
                     </div>
                     <div className="flex flex-wrap gap-1">
                       <ItemTypeBadges items={inv.items} />

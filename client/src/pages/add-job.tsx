@@ -1072,6 +1072,44 @@ export default function AddJobPage() {
     const laborCharge = Number(pendingFormData.laborCharge || 0);
     const discount = Number(pendingFormData.discount || 0);
 
+    // Validate per-business payment amounts don't exceed invoice totals
+    const activeBizSetValidate = new Set<string>();
+    (pendingFormData.services || []).forEach((_: any, i: number) => activeBizSetValidate.add(businessAssignments[`service-${i}`] || "Auto Gamma"));
+    (pendingFormData.ppfs || []).forEach((_: any, i: number) => activeBizSetValidate.add(businessAssignments[`ppf-${i}`] || "Auto Gamma"));
+    (pendingFormData.accessories || []).forEach((_: any, i: number) => activeBizSetValidate.add(businessAssignments[`accessory-${i}`] || "Auto Gamma"));
+
+    if (activeBizSetValidate.size > 1) {
+      const bizTotalsValidate: Record<string, number> = {};
+      (pendingFormData.services || []).forEach((s: any, i: number) => {
+        const biz = businessAssignments[`service-${i}`] || "Auto Gamma";
+        bizTotalsValidate[biz] = (bizTotalsValidate[biz] || 0) + Number(s.price || 0);
+      });
+      (pendingFormData.ppfs || []).forEach((p: any, i: number) => {
+        const biz = businessAssignments[`ppf-${i}`] || "Auto Gamma";
+        bizTotalsValidate[biz] = (bizTotalsValidate[biz] || 0) + Number(p.price || 0);
+      });
+      (pendingFormData.accessories || []).forEach((a: any, i: number) => {
+        const biz = businessAssignments[`accessory-${i}`] || "Auto Gamma";
+        bizTotalsValidate[biz] = (bizTotalsValidate[biz] || 0) + (Number(a.price || 0) * (Number(a.quantity) || 1));
+      });
+      if (laborCharge > 0 && laborBusiness) {
+        bizTotalsValidate[laborBusiness] = (bizTotalsValidate[laborBusiness] || 0) + laborCharge;
+      }
+
+      for (const biz of Array.from(activeBizSetValidate)) {
+        const paid = Number(perBusinessPayments[biz]?.amount) || 0;
+        const total = bizTotalsValidate[biz] || 0;
+        if (paid > total) {
+          toast({
+            title: "Invalid Payment Amount",
+            description: `Payment for ${biz} (₹${paid.toLocaleString()}) cannot exceed the invoice total (₹${total.toLocaleString()}).`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    }
+
     const businessesPresent = new Set(Object.values(businessAssignments));
     if (laborCharge > 0) businessesPresent.add(laborBusiness);
 
@@ -2683,11 +2721,16 @@ export default function AddJobPage() {
                                     value={d.amount}
                                     onChange={(e) => {
                                       const raw = e.target.value.replace(/[^0-9.]/g, "");
-                                      updatePerBizPayment(biz, "amount", raw);
+                                      const num = parseFloat(raw);
+                                      const capped = !isNaN(num) && num > total ? String(total) : raw;
+                                      updatePerBizPayment(biz, "amount", capped);
                                     }}
                                     placeholder="0"
-                                    className="h-9"
+                                    className={`h-9 ${Number(d.amount) > total ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                                   />
+                                  {Number(d.amount) > total && (
+                                    <p className="text-[10px] text-red-500 mt-0.5">Cannot exceed ₹{total.toLocaleString()}</p>
+                                  )}
                                 </div>
                               </div>
                             </div>
