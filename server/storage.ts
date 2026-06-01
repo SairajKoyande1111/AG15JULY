@@ -114,6 +114,7 @@ const resellOrderMongoSchema = new mongoose.Schema({
   date: { type: String, required: true },
   buyerName: { type: String, required: true },
   buyerPhone: { type: String, default: "" },
+  buyerGstin: { type: String, default: "" },
   itemType: { type: String, required: true },
   accessoryId: { type: String, default: "" },
   accessoryName: { type: String, default: "" },
@@ -126,6 +127,12 @@ const resellOrderMongoSchema = new mongoose.Schema({
   sqft: { type: Number, default: 0 },
   unitPrice: { type: Number, required: true },
   totalAmount: { type: Number, required: true },
+  gstType: { type: String, default: "None" },
+  gstPercentage: { type: Number, default: 0 },
+  gstAmount: { type: Number, default: 0 },
+  grandTotal: { type: Number, default: 0 },
+  hsnCode: { type: String, default: "" },
+  invoiceNo: { type: String, default: "" },
   paymentMode: { type: String, default: "Cash" },
   notes: { type: String, default: "" },
   createdAt: { type: String, default: () => new Date().toISOString() },
@@ -2803,7 +2810,7 @@ export class MongoStorage implements IStorage {
     return docs.map(d => ({ ...d.toObject(), id: d._id.toString() }) as ResellOrder);
   }
 
-  async createResellOrder(order: InsertResellOrder): Promise<ResellOrder> {
+  async createResellOrder(order: InsertResellOrder & { invoiceNo?: string }): Promise<ResellOrder> {
     const doc = new ResellOrderModel({ ...order, createdAt: new Date().toISOString() });
     await doc.save();
     return { ...doc.toObject(), id: doc._id.toString() } as ResellOrder;

@@ -540,6 +540,7 @@ export const resellOrderSchema = z.object({
   date: z.string().min(1, "Date is required"),
   buyerName: z.string().min(1, "Buyer name is required"),
   buyerPhone: z.string().optional().default(""),
+  buyerGstin: z.string().optional().default(""),
   itemType: z.enum(["Accessory", "PPF"]),
   // Accessory fields
   accessoryId: z.string().optional().default(""),
@@ -555,6 +556,13 @@ export const resellOrderSchema = z.object({
   // Pricing
   unitPrice: z.coerce.number().min(0),
   totalAmount: z.coerce.number().min(0),
+  // GST
+  gstType: z.enum(["None", "Internal", "External"]).optional().default("None"),
+  gstPercentage: z.coerce.number().optional().default(0),
+  gstAmount: z.coerce.number().optional().default(0),
+  grandTotal: z.coerce.number().optional().default(0),
+  hsnCode: z.string().optional().default(""),
+  invoiceNo: z.string().optional().default(""),
   paymentMode: z.string().default("Cash"),
   notes: z.string().optional().default(""),
   createdAt: z.string().default(() => new Date().toISOString()),

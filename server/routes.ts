@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage, PPFMasterModel, AccessoryMasterModel } from "./storage";
+import { storage, PPFMasterModel, AccessoryMasterModel, ResellOrderModel } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import session from "express-session";
@@ -1124,7 +1124,9 @@ app.use((req, res, next) => {
         return res.status(400).json({ message: "Invalid item type" });
       }
 
-      const order = await storage.createResellOrder(body);
+      const count = await ResellOrderModel.countDocuments();
+      const invoiceNo = `RS-${String(count + 1).padStart(4, "0")}`;
+      const order = await storage.createResellOrder({ ...body, invoiceNo });
       res.status(201).json(order);
     } catch (e: any) {
       res.status(500).json({ message: e.message });
