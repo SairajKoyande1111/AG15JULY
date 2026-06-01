@@ -1406,15 +1406,21 @@ export class MongoStorage implements IStorage {
         }
         const invoiceNo = `${bizPrefix}-${invoiceDateStr}-${nextNumCreate.toString().padStart(2, "0")}`;
 
-        // For split invoices, each invoice should only carry its own share of payment
-        const jobPaymentsCreate: any[] = (j as any).payments || [];
+        // Per-business payments take priority; fall back to single-business global payments
+        const perBizPayCreate = (j as any).perBusinessPayments?.[biz];
         let invoicePaymentsCreate: any[] = [];
-        if ((j as any).isPaid && jobPaymentsCreate.length > 0) {
-          if (bizCount === 1) {
+        let invoiceIsPaidCreate = false;
+        if (perBizPayCreate !== undefined) {
+          const amt = Number(perBizPayCreate.amount) || 0;
+          if (amt > 0) {
+            invoicePaymentsCreate = [{ amount: amt, method: perBizPayCreate.method || "Cash", date: perBizPayCreate.date || new Date().toISOString().split("T")[0] }];
+          }
+          invoiceIsPaidCreate = amt >= totalAmount;
+        } else {
+          const jobPaymentsCreate: any[] = (j as any).payments || [];
+          if ((j as any).isPaid && jobPaymentsCreate.length > 0) {
             invoicePaymentsCreate = jobPaymentsCreate;
-          } else {
-            const fp = jobPaymentsCreate[0];
-            invoicePaymentsCreate = [{ amount: totalAmount, method: fp.method, date: fp.date }];
+            invoiceIsPaidCreate = true;
           }
         }
 
@@ -1440,7 +1446,7 @@ export class MongoStorage implements IStorage {
           gstAmount,
           totalAmount,
           date: j.date,
-          isPaid: (j as any).isPaid || false,
+          isPaid: invoiceIsPaidCreate,
           payments: invoicePaymentsCreate
         });
         await inv.save();
@@ -1876,15 +1882,21 @@ export class MongoStorage implements IStorage {
             }
           }
 
-          // For split invoices, each invoice should only carry its own share of payment
-          const jobPaymentsUpdate: any[] = (j as any).payments || [];
+          // Per-business payments take priority; fall back to single-business global payments
+          const perBizPayUpdate = (j as any).perBusinessPayments?.[biz];
           let invoicePaymentsUpdate: any[] = [];
-          if ((j as any).isPaid && jobPaymentsUpdate.length > 0) {
-            if (bizCount === 1) {
+          let invoiceIsPaidUpdate = false;
+          if (perBizPayUpdate !== undefined) {
+            const amt = Number(perBizPayUpdate.amount) || 0;
+            if (amt > 0) {
+              invoicePaymentsUpdate = [{ amount: amt, method: perBizPayUpdate.method || "Cash", date: perBizPayUpdate.date || new Date().toISOString().split("T")[0] }];
+            }
+            invoiceIsPaidUpdate = amt >= totalAmount;
+          } else {
+            const jobPaymentsUpdate: any[] = (j as any).payments || [];
+            if ((j as any).isPaid && jobPaymentsUpdate.length > 0) {
               invoicePaymentsUpdate = jobPaymentsUpdate;
-            } else {
-              const fp = jobPaymentsUpdate[0];
-              invoicePaymentsUpdate = [{ amount: totalAmount, method: fp.method, date: fp.date }];
+              invoiceIsPaidUpdate = true;
             }
           }
 
@@ -1907,7 +1919,7 @@ export class MongoStorage implements IStorage {
             gstAmount,
             totalAmount,
             date: j.date,
-            isPaid: (j as any).isPaid,
+            isPaid: invoiceIsPaidUpdate,
             payments: invoicePaymentsUpdate
           });
         } else {
@@ -1977,15 +1989,21 @@ export class MongoStorage implements IStorage {
           }
           const invoiceNo = `${bizPrefix}-${updateDateStr}-${nextNumUpdate.toString().padStart(2, "0")}`;
 
-          // For split invoices, each invoice should only carry its own share of payment
-          const jobPaymentsNew: any[] = (j as any).payments || [];
+          // Per-business payments take priority; fall back to single-business global payments
+          const perBizPayNew = (j as any).perBusinessPayments?.[biz];
           let invoicePaymentsNew: any[] = [];
-          if ((j as any).isPaid && jobPaymentsNew.length > 0) {
-            if (bizCount === 1) {
+          let invoiceIsPaidNew = false;
+          if (perBizPayNew !== undefined) {
+            const amt = Number(perBizPayNew.amount) || 0;
+            if (amt > 0) {
+              invoicePaymentsNew = [{ amount: amt, method: perBizPayNew.method || "Cash", date: perBizPayNew.date || new Date().toISOString().split("T")[0] }];
+            }
+            invoiceIsPaidNew = amt >= totalAmount;
+          } else {
+            const jobPaymentsNew: any[] = (j as any).payments || [];
+            if ((j as any).isPaid && jobPaymentsNew.length > 0) {
               invoicePaymentsNew = jobPaymentsNew;
-            } else {
-              const fp = jobPaymentsNew[0];
-              invoicePaymentsNew = [{ amount: totalAmount, method: fp.method, date: fp.date }];
+              invoiceIsPaidNew = true;
             }
           }
           
@@ -2010,7 +2028,7 @@ export class MongoStorage implements IStorage {
             gstAmount,
             totalAmount,
             date: j.date,
-            isPaid: (j as any).isPaid || false,
+            isPaid: invoiceIsPaidNew,
             payments: invoicePaymentsNew
           });
           await inv.save();

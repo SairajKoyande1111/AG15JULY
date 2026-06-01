@@ -648,6 +648,13 @@ export default function AddJobPage() {
   const [payments, setPayments] = useState<{ amount: number; method: string; date: string }[]>([
     { amount: 0, method: "Cash", date: new Date().toISOString().split("T")[0] }
   ]);
+  const [perBusinessPayments, setPerBusinessPayments] = useState<Record<string, { amount: string; method: string; date: string }>>({});
+  const updatePerBizPayment = (biz: string, field: string, value: string) => {
+    setPerBusinessPayments(prev => ({
+      ...prev,
+      [biz]: { amount: "", method: "Cash", date: new Date().toISOString().split("T")[0], ...prev[biz], [field]: value }
+    }));
+  };
 
   const handleAddPayment = () => {
     setPayments([...payments, { amount: 0, method: "Cash", date: new Date().toISOString().split("T")[0] }]);
@@ -1138,6 +1145,9 @@ export default function AddJobPage() {
       })),
       isPaid: markAsPaid,
       payments: markAsPaid ? payments.map((p: any) => ({ ...p, amount: Number(p.amount) })) : [],
+      perBusinessPayments: Object.fromEntries(
+        Object.entries(perBusinessPayments).map(([biz, d]) => [biz, { ...d, amount: Number(d.amount) || 0 }])
+      ),
       laborCharge: laborCharge,
       laborBusiness: laborBusiness,
       discount: discount,
@@ -2596,125 +2606,177 @@ export default function AddJobPage() {
               )}
 
               <div className="pt-4 border-t space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <label className="text-sm font-bold">Mark as Paid</label>
-                    <p className="text-xs text-muted-foreground">Has the customer already paid for this service?</p>
-                  </div>
-                  <div className="flex items-center h-9">
-                    <input 
-                      type="checkbox" 
-                      checked={markAsPaid} 
-                      onChange={(e) => setMarkAsPaid(e.target.checked)}
-                      className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-600"
-                    />
-                  </div>
-                </div>
+                {(() => {
+                  // Compute which businesses are active based on current assignments
+                  const activeBizSet = new Set<string>();
+                  (pendingFormData?.services || []).forEach((_: any, i: number) => activeBizSet.add(businessAssignments[`service-${i}`] || "Auto Gamma"));
+                  (pendingFormData?.ppfs || []).forEach((_: any, i: number) => activeBizSet.add(businessAssignments[`ppf-${i}`] || "Auto Gamma"));
+                  (pendingFormData?.accessories || []).forEach((_: any, i: number) => activeBizSet.add(businessAssignments[`accessory-${i}`] || "Auto Gamma"));
+                  if ((pendingFormData?.laborCharge || 0) > 0 && laborBusiness) activeBizSet.add(laborBusiness);
+                  const isMultiBiz = activeBizSet.size > 1;
 
-            {markAsPaid && (
-              <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                <div className="flex items-center justify-between bg-red-50 p-3 rounded-lg border border-red-100">
-                  <div className="flex items-center gap-2 text-red-700">
-                    <FileText className="h-4 w-4" />
-                    <span className="text-sm font-bold uppercase tracking-wider">Total Invoice Amount:</span>
-                    <span className="text-lg font-black tracking-tight">₹{Math.round(
-                      ([...form.watch("services"), ...form.watch("ppfs"), ...form.watch("accessories")].reduce((acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)), 0) + 
-                      Number(form.watch("laborCharge") || 0) - 
-                      Number(form.watch("discount") || 0))
-                    ).toLocaleString()}</span>
-                  </div>
-                  <div className="flex gap-4">
-                    <div className="text-right">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block leading-none mb-1">Total Paid</span>
-                      <span className="text-sm font-bold text-slate-700">₹{payments.reduce((acc, p) => acc + Number(p.amount || 0), 0).toLocaleString()}</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block leading-none mb-1">Remaining</span>
-                      <span className={`text-sm font-bold ${
-                        Math.round(
-                          ([...form.watch("services"), ...form.watch("ppfs"), ...form.watch("accessories")].reduce((acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)), 0) + 
-                          Number(form.watch("laborCharge") || 0) - 
-                          Number(form.watch("discount") || 0))
-                        ) - payments.reduce((acc, p) => acc + Number(p.amount || 0), 0) > 0 ? "text-red-600" : "text-green-600"
-                      }`}>₹{Math.max(0, Math.round(
-                        ([...form.watch("services"), ...form.watch("ppfs"), ...form.watch("accessories")].reduce((acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)), 0) + 
-                        Number(form.watch("laborCharge") || 0) - 
-                        Number(form.watch("discount") || 0))
-                      ) - payments.reduce((acc, p) => acc + Number(p.amount || 0), 0)).toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
+                  if (isMultiBiz) {
+                    // Compute per-business subtotals
+                    const bizTotals: Record<string, number> = {};
+                    (pendingFormData?.services || []).forEach((s: any, i: number) => {
+                      const biz = businessAssignments[`service-${i}`] || "Auto Gamma";
+                      bizTotals[biz] = (bizTotals[biz] || 0) + Number(s.price || 0);
+                    });
+                    (pendingFormData?.ppfs || []).forEach((p: any, i: number) => {
+                      const biz = businessAssignments[`ppf-${i}`] || "Auto Gamma";
+                      bizTotals[biz] = (bizTotals[biz] || 0) + Number(p.price || 0);
+                    });
+                    (pendingFormData?.accessories || []).forEach((a: any, i: number) => {
+                      const biz = businessAssignments[`accessory-${i}`] || "Auto Gamma";
+                      bizTotals[biz] = (bizTotals[biz] || 0) + (Number(a.price || 0) * (Number(a.quantity) || 1));
+                    });
+                    if ((pendingFormData?.laborCharge || 0) > 0 && laborBusiness) {
+                      bizTotals[laborBusiness] = (bizTotals[laborBusiness] || 0) + Number(pendingFormData.laborCharge || 0);
+                    }
+                    const today = new Date().toISOString().split("T")[0];
 
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-semibold text-slate-900">Payment Details</h4>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleAddPayment}
-                    className="h-8"
-                  >
-                    Add Payment Method
-                  </Button>
-                </div>
-                    
-                    {payments.map((payment, index) => (
-                      <div key={index} className="flex flex-row items-end gap-3 bg-slate-50 p-3 rounded-md relative group">
-                        <div className="flex-1 min-w-[140px]">
-                          <label className="text-[10px] font-bold text-slate-400 mb-1 block uppercase tracking-wider">Method</label>
-                          <Select 
-                            value={payment.method} 
-                            onValueChange={(val) => handlePaymentChange(index, "method", val)}
-                          >
-                            <SelectTrigger className="h-9">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Cash">Cash</SelectItem>
-                              <SelectItem value="UPI / GPay">UPI / GPay</SelectItem>
-                              <SelectItem value="Card">Card</SelectItem>
-                              <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                            </SelectContent>
-                          </Select>
+                    return (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-semibold text-slate-900">Payment Details</h4>
+                        <p className="text-xs text-muted-foreground">Enter how much has been paid for each business invoice separately.</p>
+                        {Array.from(activeBizSet).map(biz => {
+                          const total = bizTotals[biz] || 0;
+                          const d = perBusinessPayments[biz] || { amount: "", method: "Cash", date: today };
+                          const paid = Number(d.amount) || 0;
+                          const remaining = Math.max(0, total - paid);
+                          return (
+                            <div key={biz} className="border rounded-lg p-3 space-y-3 bg-slate-50/50">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-bold text-slate-900">{biz}</span>
+                                <div className="flex gap-3 text-right">
+                                  <div>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase block leading-none mb-0.5">Invoice Total</span>
+                                    <span className="text-sm font-semibold text-slate-700">₹{total.toLocaleString()}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase block leading-none mb-0.5">Remaining</span>
+                                    <span className={`text-sm font-semibold ${remaining > 0 ? "text-red-600" : "text-green-600"}`}>₹{remaining.toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex gap-3">
+                                <div className="flex-1">
+                                  <label className="text-[10px] font-bold text-slate-400 mb-1 block uppercase tracking-wider">Method</label>
+                                  <Select value={d.method} onValueChange={(val) => updatePerBizPayment(biz, "method", val)}>
+                                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="Cash">Cash</SelectItem>
+                                      <SelectItem value="UPI / GPay">UPI / GPay</SelectItem>
+                                      <SelectItem value="Card">Card</SelectItem>
+                                      <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="flex-1">
+                                  <label className="text-[10px] font-bold text-slate-400 mb-1 block uppercase tracking-wider">Date</label>
+                                  <Input type="date" value={d.date || today} onChange={(e) => updatePerBizPayment(biz, "date", e.target.value)} className="h-9" />
+                                </div>
+                                <div className="flex-1">
+                                  <label className="text-[10px] font-bold text-slate-400 mb-1 block uppercase tracking-wider">Amount Paid (₹)</label>
+                                  <Input
+                                    type="text" inputMode="decimal"
+                                    value={d.amount}
+                                    onChange={(e) => {
+                                      const raw = e.target.value.replace(/[^0-9.]/g, "");
+                                      updatePerBizPayment(biz, "amount", raw);
+                                    }}
+                                    placeholder="0"
+                                    className="h-9"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  }
+
+                  // Single business — original UI
+                  return (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <label className="text-sm font-bold">Mark as Paid</label>
+                          <p className="text-xs text-muted-foreground">Has the customer already paid for this service?</p>
                         </div>
-                        <div className="flex-1 min-w-[140px]">
-                          <label className="text-[10px] font-bold text-slate-400 mb-1 block uppercase tracking-wider">Date</label>
-                          <Input
-                            type="date"
-                            value={payment.date}
-                            onChange={(e) => handlePaymentChange(index, "date", e.target.value)}
-                            className="h-9"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-[120px]">
-                          <label className="text-[10px] font-bold text-slate-400 mb-1 block uppercase tracking-wider">Amount</label>
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            value={payment.amount === 0 ? "" : payment.amount}
-                            onChange={(e) => handlePaymentChange(index, "amount", e.target.value)}
-                            placeholder="0"
-                            className="h-9 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          />
-                        </div>
-                        <div className="flex-none">
-                          {payments.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleRemovePayment(index)}
-                              className="h-9 w-9 text-slate-300 hover:text-red-600 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
+                        <div className="flex items-center h-9">
+                          <input type="checkbox" checked={markAsPaid} onChange={(e) => setMarkAsPaid(e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-600" />
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
 
+                      {markAsPaid && (
+                        <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                          <div className="flex items-center justify-between bg-red-50 p-3 rounded-lg border border-red-100">
+                            <div className="flex items-center gap-2 text-red-700">
+                              <FileText className="h-4 w-4" />
+                              <span className="text-sm font-bold uppercase tracking-wider">Total Invoice Amount:</span>
+                              <span className="text-lg font-black tracking-tight">₹{Math.round(
+                                ([...form.watch("services"), ...form.watch("ppfs"), ...form.watch("accessories")].reduce((acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)), 0) +
+                                Number(form.watch("laborCharge") || 0) -
+                                Number(form.watch("discount") || 0))
+                              ).toLocaleString()}</span>
+                            </div>
+                            <div className="flex gap-4">
+                              <div className="text-right">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase block leading-none mb-1">Total Paid</span>
+                                <span className="text-sm font-bold text-slate-700">₹{payments.reduce((acc, p) => acc + Number(p.amount || 0), 0).toLocaleString()}</span>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase block leading-none mb-1">Remaining</span>
+                                <span className={`text-sm font-bold ${Math.round(([...form.watch("services"), ...form.watch("ppfs"), ...form.watch("accessories")].reduce((acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)), 0) + Number(form.watch("laborCharge") || 0) - Number(form.watch("discount") || 0))) - payments.reduce((acc, p) => acc + Number(p.amount || 0), 0) > 0 ? "text-red-600" : "text-green-600"}`}>
+                                  ₹{Math.max(0, Math.round(([...form.watch("services"), ...form.watch("ppfs"), ...form.watch("accessories")].reduce((acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)), 0) + Number(form.watch("laborCharge") || 0) - Number(form.watch("discount") || 0))) - payments.reduce((acc, p) => acc + Number(p.amount || 0), 0)).toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-slate-900">Payment Details</h4>
+                            <Button type="button" variant="outline" size="sm" onClick={handleAddPayment} className="h-8">Add Payment Method</Button>
+                          </div>
+
+                          {payments.map((payment, index) => (
+                            <div key={index} className="flex flex-row items-end gap-3 bg-slate-50 p-3 rounded-md relative group">
+                              <div className="flex-1 min-w-[140px]">
+                                <label className="text-[10px] font-bold text-slate-400 mb-1 block uppercase tracking-wider">Method</label>
+                                <Select value={payment.method} onValueChange={(val) => handlePaymentChange(index, "method", val)}>
+                                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Cash">Cash</SelectItem>
+                                    <SelectItem value="UPI / GPay">UPI / GPay</SelectItem>
+                                    <SelectItem value="Card">Card</SelectItem>
+                                    <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="flex-1 min-w-[140px]">
+                                <label className="text-[10px] font-bold text-slate-400 mb-1 block uppercase tracking-wider">Date</label>
+                                <Input type="date" value={payment.date} onChange={(e) => handlePaymentChange(index, "date", e.target.value)} className="h-9" />
+                              </div>
+                              <div className="flex-1 min-w-[120px]">
+                                <label className="text-[10px] font-bold text-slate-400 mb-1 block uppercase tracking-wider">Amount</label>
+                                <Input type="text" inputMode="decimal" value={payment.amount === 0 ? "" : payment.amount} onChange={(e) => handlePaymentChange(index, "amount", e.target.value)} placeholder="0" className="h-9" />
+                              </div>
+                              <div className="flex-none">
+                                {payments.length > 1 && (
+                                  <Button type="button" variant="ghost" size="icon" onClick={() => handleRemovePayment(index)} className="h-9 w-9 text-slate-300 hover:text-red-600 hover:bg-red-50">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </div>
 
