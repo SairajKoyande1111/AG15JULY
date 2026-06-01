@@ -461,6 +461,9 @@ export default function InvoicePage() {
       setShowViewPaymentDialog(false);
       resetPaymentDialog();
     },
+    onError: (error: any) => {
+      toast({ title: "Payment Failed", description: error.message || "Failed to record payment", variant: "destructive" });
+    },
   });
 
   const { phone: customerPhone } = useParams<{ phone: string }>();

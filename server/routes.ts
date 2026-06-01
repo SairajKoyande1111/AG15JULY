@@ -606,11 +606,13 @@ app.use((req, res, next) => {
       return res.status(401).send("Unauthorized");
     }
     try {
+      console.log("[PATCH INVOICE] id:", req.params.id, "body:", JSON.stringify(req.body));
       const invoice = await storage.updateInvoice(req.params.id, req.body);
       if (!invoice)
         return res.status(404).json({ message: "Invoice not found" });
       res.json(invoice);
     } catch (error: any) {
+      console.error("[PATCH INVOICE] Error:", error);
       res.status(400).json({ message: error.message || "Invalid input" });
     }
   });
@@ -633,6 +635,7 @@ app.use((req, res, next) => {
   });
 
   app.post("/api/job-cards", async (req, res) => {
+    console.log("[CREATE JOB] perBusinessPayments received:", JSON.stringify((req.body as any).perBusinessPayments));
     const job = await storage.createJobCard(req.body);
     res.json(job);
   });

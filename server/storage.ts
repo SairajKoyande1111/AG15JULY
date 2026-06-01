@@ -1897,6 +1897,11 @@ export class MongoStorage implements IStorage {
             if ((jobCard as any).isPaid && jobPaymentsUpdate.length > 0) {
               invoicePaymentsUpdate = jobPaymentsUpdate;
               invoiceIsPaidUpdate = true;
+            } else {
+              // Preserve existing invoice payments — don't wipe them when editing a job card without changing payments
+              invoicePaymentsUpdate = (existingInvoice.payments || []) as any[];
+              const existingPaid = invoicePaymentsUpdate.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+              invoiceIsPaidUpdate = existingPaid > 0 && existingPaid >= totalAmount;
             }
           }
 
