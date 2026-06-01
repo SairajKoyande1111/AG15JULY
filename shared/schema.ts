@@ -559,6 +559,9 @@ export const resellOrderSchema = z.object({
   // GST
   gstType: z.enum(["None", "Internal", "External"]).optional().default("None"),
   gstPercentage: z.coerce.number().optional().default(0),
+  cgstPercentage: z.coerce.number().optional().default(0),
+  sgstPercentage: z.coerce.number().optional().default(0),
+  igstPercentage: z.coerce.number().optional().default(0),
   gstAmount: z.coerce.number().optional().default(0),
   grandTotal: z.coerce.number().optional().default(0),
   hsnCode: z.string().optional().default(""),

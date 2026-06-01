@@ -221,18 +221,24 @@ function InventoryOverview({ accessories, ppfs }: { accessories: AccessoryMaster
 
 // ── GST SECTION COMPONENT ─────────────────────────────────────────────────────
 function GstSection({
-  gstType, setGstType, gstPercentage, setGstPercentage, hsnCode, setHsnCode, baseAmount
+  gstType, setGstType,
+  gstPct, setGstPct,
+  hsnCode, setHsnCode,
+  baseAmount,
 }: {
   gstType: "None" | "Internal" | "External";
   setGstType: (v: "None" | "Internal" | "External") => void;
-  gstPercentage: number;
-  setGstPercentage: (v: number) => void;
+  gstPct: string;
+  setGstPct: (v: string) => void;
   hsnCode: string;
   setHsnCode: (v: string) => void;
   baseAmount: number;
 }) {
-  const gstAmount = gstType !== "None" ? Math.round(baseAmount * gstPercentage / 100) : 0;
-  const grandTotal = baseAmount + gstAmount;
+  const gst = parseFloat(gstPct) || 0;
+  const half = gst / 2;
+  const gstAmt = Math.round(baseAmount * gst / 100);
+  const halfAmt = Math.round(baseAmount * half / 100);
+  const grandTotal = baseAmount + gstAmt;
 
   return (
     <div className="space-y-4 border border-border/40 rounded-lg p-4 bg-muted/10">
@@ -245,27 +251,33 @@ function GstSection({
           {(["None", "Internal", "External"] as const).map(t => (
             <button key={t} type="button"
               data-testid={`button-gst-type-${t.toLowerCase()}`}
-              onClick={() => { setGstType(t); if (t === "None") setGstPercentage(0); }}
+              onClick={() => setGstType(t)}
               className={`rounded-lg border px-2 py-2 text-xs font-medium transition-all
                 ${gstType === t ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}>
-              {t === "None" ? "No GST" : t === "Internal" ? "Internal (CGST+SGST)" : "External (IGST)"}
+              {t === "None" ? "No GST" : t === "Internal" ? "Internal" : "External"}
             </button>
           ))}
         </div>
       </div>
 
-      {/* GST Rate */}
+      {/* Single GST % input for Internal and External */}
       {gstType !== "None" && (
         <div className="space-y-1.5">
-          <Label className="text-sm">GST Rate</Label>
-          <Select value={gstPercentage.toString()} onValueChange={v => setGstPercentage(Number(v))}>
-            <SelectTrigger data-testid="select-gst-rate"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {GST_RATES.filter(r => r > 0).map(r => (
-                <SelectItem key={r} value={r.toString()}>{r}%</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label className="text-sm">
+            GST %
+            {gstType === "Internal" && gst > 0 && (
+              <span className="text-muted-foreground font-normal ml-1.5">
+                → CGST {half}% + SGST {half}%
+              </span>
+            )}
+          </Label>
+          <Input
+            data-testid="input-gst-pct"
+            type="number" min="0" max="100" step="0.01"
+            placeholder={gstType === "Internal" ? "e.g. 18 (splits to 9+9)" : "e.g. 18"}
+            value={gstPct}
+            onChange={e => setGstPct(e.target.value)}
+          />
         </div>
       )}
 
@@ -275,31 +287,31 @@ function GstSection({
         <HsnCombobox value={hsnCode} onChange={setHsnCode} placeholder="Search or type HSN code..." />
       </div>
 
-      {/* GST Calculation Preview */}
-      {gstType !== "None" && gstPercentage > 0 && baseAmount > 0 && (
+      {/* Live Calculation Preview */}
+      {gstType !== "None" && gst > 0 && baseAmount > 0 && (
         <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 space-y-1.5">
-          <div className="flex justify-between text-sm text-muted-foreground">
-            <span>Base Amount</span>
-            <span className="font-medium text-foreground">{formatCurrency(baseAmount)}</span>
+          <div className="flex justify-between text-sm text-slate-600">
+            <span className="font-medium">Total Amount</span>
+            <span className="font-bold text-slate-900">{formatCurrency(baseAmount)}</span>
           </div>
           {gstType === "Internal" ? (
             <>
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>CGST {gstPercentage / 2}%</span>
-                <span>+ {formatCurrency(Math.round(baseAmount * gstPercentage / 2 / 100))}</span>
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>CGST {half}%</span>
+                <span>+ {formatCurrency(halfAmt)}</span>
               </div>
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>SGST {gstPercentage / 2}%</span>
-                <span>+ {formatCurrency(Math.round(baseAmount * gstPercentage / 2 / 100))}</span>
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>SGST {half}%</span>
+                <span>+ {formatCurrency(halfAmt)}</span>
               </div>
             </>
           ) : (
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>IGST {gstPercentage}%</span>
-              <span>+ {formatCurrency(gstAmount)}</span>
+            <div className="flex justify-between text-xs text-slate-500">
+              <span>IGST {gst}%</span>
+              <span>+ {formatCurrency(gstAmt)}</span>
             </div>
           )}
-          <div className="flex justify-between font-bold text-sm text-foreground border-t border-slate-300 pt-1.5">
+          <div className="flex justify-between font-bold text-sm border-t border-slate-300 pt-1.5">
             <span>Grand Total</span>
             <span className="text-primary">{formatCurrency(grandTotal)}</span>
           </div>
@@ -329,12 +341,12 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
   const [sqft, setSqft] = useState("");
 
   const [unitPrice, setUnitPrice] = useState("");
-  const [totalAmount, setTotalAmount] = useState("");
+  const [totalAmount, setTotalAmount] = useState(""); // PPF only (manual)
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [notes, setNotes] = useState("");
 
   const [gstType, setGstType] = useState<"None" | "Internal" | "External">("None");
-  const [gstPercentage, setGstPercentage] = useState(18);
+  const [gstPct, setGstPct] = useState("");
   const [hsnCode, setHsnCode] = useState("");
 
   const selectedAccessory = accessories.find(a => a.id === selectedAccessoryId);
@@ -346,8 +358,13 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
   const unitPriceVal = parseFloat(unitPrice) || 0;
   const totalAmountVal = parseFloat(totalAmount) || 0;
 
-  const gstAmount = gstType !== "None" ? Math.round(totalAmountVal * gstPercentage / 100) : 0;
-  const grandTotal = totalAmountVal + gstAmount;
+  // Accessory: auto-calculate from qty × unit price; PPF: manual entry
+  const baseAmount = itemType === "Accessory" ? qty * unitPriceVal : totalAmountVal;
+
+  const gst = parseFloat(gstPct) || 0;
+  const half = gst / 2;
+  const gstAmount = gstType !== "None" ? Math.round(baseAmount * gst / 100) : 0;
+  const grandTotal = baseAmount + gstAmount;
 
   const handleAccessorySelect = (id: string) => {
     setSelectedAccessoryId(id);
@@ -382,18 +399,19 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
     setSelectedAccessoryId(""); setQuantity("");
     setSelectedBrandId(""); setSelectedRollId(""); setSqft("");
     setUnitPrice(""); setTotalAmount(""); setPaymentMode("Cash"); setNotes("");
-    setGstType("None"); setGstPercentage(18); setHsnCode("");
+    setGstType("None"); setGstPct(""); setHsnCode("");
   };
 
   const handleSubmit = () => {
     if (!buyerName.trim()) { toast({ title: "Buyer name is required", variant: "destructive" }); return; }
     if (!date) { toast({ title: "Date is required", variant: "destructive" }); return; }
-    if (unitPriceVal < 0) { toast({ title: "Unit price cannot be negative", variant: "destructive" }); return; }
 
-    const payload: any = {
-      date, buyerName, buyerPhone, buyerGstin,
-      paymentMode, notes, gstType,
-      gstPercentage: gstType !== "None" ? gstPercentage : 0,
+    const gstPayload = {
+      gstType,
+      gstPercentage: gstType !== "None" ? gst : 0,
+      cgstPercentage: gstType === "Internal" ? half : 0,
+      sgstPercentage: gstType === "Internal" ? half : 0,
+      igstPercentage: gstType === "External" ? gst : 0,
       gstAmount,
       grandTotal,
       hsnCode,
@@ -406,14 +424,16 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
       if (selectedAccessory && qty > selectedAccessory.quantity) {
         toast({ title: `Insufficient stock. Available: ${selectedAccessory.quantity} pcs`, variant: "destructive" }); return;
       }
+      if (baseAmount <= 0) { toast({ title: "Unit price must be greater than 0", variant: "destructive" }); return; }
       mutation.mutate({
-        ...payload, itemType,
+        date, buyerName, buyerPhone, buyerGstin, paymentMode, notes,
+        ...gstPayload, itemType,
         accessoryId: selectedAccessoryId,
         accessoryName: selectedAccessory?.name ?? "",
         accessoryCategory: selectedAccessory?.category ?? "",
         quantity: qty,
         unitPrice: unitPriceVal,
-        totalAmount: totalAmountVal || qty * unitPriceVal,
+        totalAmount: baseAmount,
       });
     } else {
       if (!selectedBrandId) { toast({ title: "Please select a PPF brand", variant: "destructive" }); return; }
@@ -424,7 +444,8 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
       }
       if (!totalAmountVal || totalAmountVal <= 0) { toast({ title: "Total amount must be greater than 0", variant: "destructive" }); return; }
       mutation.mutate({
-        ...payload, itemType,
+        date, buyerName, buyerPhone, buyerGstin, paymentMode, notes,
+        ...gstPayload, itemType,
         ppfBrandId: selectedBrandId,
         ppfBrandName: selectedBrand?.name ?? "",
         ppfRollId: selectedRollId,
@@ -537,12 +558,13 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
                     value={unitPrice} onChange={e => setUnitPrice(e.target.value)} />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Base Amount (₹) <span className="text-destructive">*</span></Label>
-                <Input data-testid="input-total-amount" type="number" min="0" placeholder="Enter base amount (before GST)"
-                  value={totalAmount} onChange={e => setTotalAmount(e.target.value)} />
-                <p className="text-xs text-muted-foreground">Enter the amount before GST. GST will be added on top.</p>
-              </div>
+              {/* Auto-calculated total for Accessory */}
+              {baseAmount > 0 && (
+                <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 flex items-center justify-between">
+                  <span className="text-xs text-emerald-700 font-medium">Total Amount (auto)</span>
+                  <span className="text-sm font-bold text-emerald-800">{formatCurrency(baseAmount)}</span>
+                </div>
+              )}
             </>
           )}
 
@@ -609,10 +631,9 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
               </div>
 
               <div className="space-y-1.5">
-                <Label>Base Amount (₹) <span className="text-destructive">*</span></Label>
-                <Input data-testid="input-total-amount" type="number" min="0" placeholder="Enter base amount (before GST)"
+                <Label>Total Amount (₹) <span className="text-destructive">*</span></Label>
+                <Input data-testid="input-total-amount" type="number" min="0" placeholder="Enter total amount"
                   value={totalAmount} onChange={e => setTotalAmount(e.target.value)} />
-                <p className="text-xs text-muted-foreground">Enter the amount before GST. GST will be added on top.</p>
               </div>
             </>
           )}
@@ -620,9 +641,9 @@ function CreateResellDialog({ open, onClose, accessories, ppfs }: {
           {/* GST Section */}
           <GstSection
             gstType={gstType} setGstType={setGstType}
-            gstPercentage={gstPercentage} setGstPercentage={setGstPercentage}
+            gstPct={gstPct} setGstPct={setGstPct}
             hsnCode={hsnCode} setHsnCode={setHsnCode}
-            baseAmount={totalAmountVal}
+            baseAmount={baseAmount}
           />
 
           {/* Payment Mode */}
@@ -661,16 +682,24 @@ function EditResellDialog({ order, onClose }: { order: ResellOrder | null; onClo
   const [quantity, setQuantity] = useState(order?.quantity?.toString() ?? "");
   const [sqft, setSqft] = useState(order?.sqft?.toString() ?? "");
   const [unitPrice, setUnitPrice] = useState(order?.unitPrice?.toString() ?? "");
-  const [totalAmount, setTotalAmount] = useState(order?.totalAmount?.toString() ?? "");
+  const [totalAmount, setTotalAmount] = useState(order?.totalAmount?.toString() ?? ""); // PPF only
   const [paymentMode, setPaymentMode] = useState(order?.paymentMode ?? "Cash");
   const [notes, setNotes] = useState(order?.notes ?? "");
   const [gstType, setGstType] = useState<"None" | "Internal" | "External">((order?.gstType as any) ?? "None");
-  const [gstPercentage, setGstPercentage] = useState(order?.gstPercentage ?? 18);
+  const [gstPct, setGstPct] = useState((order?.gstPercentage ?? 0) > 0 ? String(order?.gstPercentage ?? "") : "");
   const [hsnCode, setHsnCode] = useState(order?.hsnCode ?? "");
 
+  const qty = parseFloat(quantity) || 0;
+  const unitPriceVal = parseFloat(unitPrice) || 0;
   const totalAmountVal = parseFloat(totalAmount) || 0;
-  const gstAmount = gstType !== "None" ? Math.round(totalAmountVal * gstPercentage / 100) : 0;
-  const grandTotal = totalAmountVal + gstAmount;
+
+  // Accessory: auto-calculate; PPF: manual
+  const baseAmount = order?.itemType === "Accessory" ? qty * unitPriceVal : totalAmountVal;
+
+  const gst = parseFloat(gstPct) || 0;
+  const half = gst / 2;
+  const gstAmount = gstType !== "None" ? Math.round(baseAmount * gst / 100) : 0;
+  const grandTotal = baseAmount + gstAmount;
 
   const mutation = useMutation({
     mutationFn: (data: any) => apiRequest("PATCH", `/api/resell/${order?.id}`, data),
@@ -687,16 +716,18 @@ function EditResellDialog({ order, onClose }: { order: ResellOrder | null; onClo
   const handleSubmit = () => {
     if (!buyerName.trim()) { toast({ title: "Buyer name is required", variant: "destructive" }); return; }
     if (!date) { toast({ title: "Date is required", variant: "destructive" }); return; }
-    const totalVal = parseFloat(totalAmount) || 0;
-    if (totalVal <= 0) { toast({ title: "Base amount must be greater than 0", variant: "destructive" }); return; }
+    if (baseAmount <= 0) { toast({ title: "Amount must be greater than 0", variant: "destructive" }); return; }
 
     const payload: any = {
       date, buyerName, buyerPhone, buyerGstin,
-      unitPrice: parseFloat(unitPrice) || 0,
-      totalAmount: totalVal,
+      unitPrice: unitPriceVal,
+      totalAmount: baseAmount,
       paymentMode, notes,
       gstType,
-      gstPercentage: gstType !== "None" ? gstPercentage : 0,
+      gstPercentage: gstType !== "None" ? gst : 0,
+      cgstPercentage: gstType === "Internal" ? half : 0,
+      sgstPercentage: gstType === "Internal" ? half : 0,
+      igstPercentage: gstType === "External" ? gst : 0,
       gstAmount,
       grandTotal,
       hsnCode,
@@ -780,17 +811,28 @@ function EditResellDialog({ order, onClose }: { order: ResellOrder | null; onClo
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Base Amount (₹) <span className="text-destructive">*</span></Label>
-            <Input data-testid="edit-input-total" type="number" min="0" placeholder="Enter base amount (before GST)"
-              value={totalAmount} onChange={e => setTotalAmount(e.target.value)} />
-          </div>
+          {/* Accessory: auto-calculated total */}
+          {order.itemType === "Accessory" && baseAmount > 0 && (
+            <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 flex items-center justify-between">
+              <span className="text-xs text-emerald-700 font-medium">Total Amount (auto)</span>
+              <span className="text-sm font-bold text-emerald-800">{formatCurrency(baseAmount)}</span>
+            </div>
+          )}
+
+          {/* PPF: manual total amount */}
+          {order.itemType === "PPF" && (
+            <div className="space-y-1.5">
+              <Label>Total Amount (₹) <span className="text-destructive">*</span></Label>
+              <Input data-testid="edit-input-total" type="number" min="0" placeholder="Enter total amount"
+                value={totalAmount} onChange={e => setTotalAmount(e.target.value)} />
+            </div>
+          )}
 
           <GstSection
             gstType={gstType} setGstType={setGstType}
-            gstPercentage={gstPercentage} setGstPercentage={setGstPercentage}
+            gstPct={gstPct} setGstPct={setGstPct}
             hsnCode={hsnCode} setHsnCode={setHsnCode}
-            baseAmount={totalAmountVal}
+            baseAmount={baseAmount}
           />
 
           <div className="space-y-1.5">
