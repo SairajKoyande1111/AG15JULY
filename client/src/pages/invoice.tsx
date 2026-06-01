@@ -944,11 +944,14 @@ export default function InvoicePage() {
                               <Badge className={`${badgeColor} text-white hover:opacity-90`}>
                                 {status}
                               </Badge>
-                              {paidAmount > 0 && (
-                                <div className="text-[10px] text-slate-500">
-                                  Paid: ₹{paidAmount.toLocaleString()} / ₹{inv.totalAmount.toLocaleString()}
-                                </div>
-                              )}
+                              <div className="text-[10px] text-slate-500 leading-tight">
+                                {paidAmount > 0 && (
+                                  <div className="text-green-700 font-medium">Paid: ₹{paidAmount.toLocaleString()}</div>
+                                )}
+                                {inv.totalAmount - paidAmount > 0 && (
+                                  <div className="text-red-500 font-medium">Due: ₹{(inv.totalAmount - paidAmount).toLocaleString()}</div>
+                                )}
+                              </div>
                             </div>
                           );
                         })()}
@@ -1051,12 +1054,12 @@ export default function InvoicePage() {
       }}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Mark Invoice as Paid</DialogTitle>
+            <DialogTitle>Record Payment</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 mb-4">
+            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
               <div className="flex justify-between text-xs text-slate-500 uppercase font-bold mb-1">
-                <span>Total Amount</span>
+                <span>Invoice Total</span>
                 <span>Total Paid</span>
                 <span>Remaining</span>
               </div>
@@ -1067,9 +1070,25 @@ export default function InvoicePage() {
               </div>
             </div>
 
+            {selectedInvoice?.payments && selectedInvoice.payments.length > 0 && (
+              <div className="space-y-2">
+                <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Payment History</h5>
+                {selectedInvoice.payments.map((p: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between bg-green-50 border border-green-100 px-3 py-2 rounded-md text-sm">
+                    <div className="flex gap-3 text-slate-600">
+                      <span className="font-medium">{p.method}</span>
+                      <span className="text-slate-400">·</span>
+                      <span>{p.date}</span>
+                    </div>
+                    <span className="font-bold text-green-700">₹{Number(p.amount).toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold text-slate-900">Payment Details</h4>
+                <h4 className="text-sm font-semibold text-slate-900">Add New Payment</h4>
                 <Button 
                   type="button" 
                   variant="outline" 
