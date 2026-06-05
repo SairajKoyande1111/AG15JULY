@@ -17,7 +17,6 @@ import { useToast } from "@/hooks/use-toast";
 import { ResellOrder, AccessoryMaster, PPFMaster } from "@shared/schema";
 import autoGammaLogo from "@assets/logoAutogamma_1770051027228.png";
 import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 
 const PAYMENT_MODES = ["Cash", "UPI", "Bank Transfer", "Cheque", "Credit"];
 const GST_RATES = [0, 5, 12, 18, 28];
@@ -1048,11 +1047,13 @@ function ResellInvoiceDialog({ order, onClose }: { order: ResellOrder | null; on
         scale: 2, useCORS: true, logging: false, backgroundColor: "#ffffff",
       });
       const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Resell_Invoice_${order.invoiceNo || order.id}.pdf`);
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`<html><head><title>Resell_Invoice_${order.invoiceNo || order.id}</title><style>body{margin:0;padding:0;}img{width:100%;height:auto;display:block;}@media print{body{margin:0;}}</style></head><body><img src="${imgData}" /></body></html>`);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
+      }
       toast({ title: "PDF Downloaded!" });
     } catch {
       toast({ title: "Error", description: "Failed to generate PDF.", variant: "destructive" });

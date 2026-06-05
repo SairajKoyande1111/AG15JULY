@@ -58,8 +58,6 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
 
 export default function InquiryPage() {
   const { toast } = useToast();
@@ -71,95 +69,59 @@ export default function InquiryPage() {
   const [viewingInquiry, setViewingInquiry] = useState<Inquiry | null>(null);
 
   const handleDownloadPDF = (inquiry: Inquiry) => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
+    const tableRows = [
+      ...(inquiry.services || []).map(s => `
+        <tr>
+          <td style="padding:8px;border:1px solid #e2e8f0;">${s.serviceName}${s.vehicleType ? ` (${s.vehicleType})` : ""}</td>
+          <td style="padding:8px;border:1px solid #e2e8f0;">${s.warrantyName || "-"}</td>
+          <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;">INR ${(s.price || 0).toLocaleString()}</td>
+          <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;">INR ${(s.customerPrice ?? s.price ?? 0).toLocaleString()}</td>
+        </tr>`),
+      ...(inquiry.accessories || []).map(a => `
+        <tr>
+          <td style="padding:8px;border:1px solid #e2e8f0;">${a.accessoryName} (${a.category})</td>
+          <td style="padding:8px;border:1px solid #e2e8f0;">-</td>
+          <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;">INR ${(a.price || 0).toLocaleString()}</td>
+          <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;">INR ${(a.customerPrice ?? a.price ?? 0).toLocaleString()}</td>
+        </tr>`)
+    ].join("");
 
-    // Header
-    doc.setFontSize(20);
-    doc.setTextColor(220, 38, 38); // Red-600
-    doc.text("AUTO GAMMA", 14, 22);
-    
-    doc.setFontSize(10);
-    doc.setTextColor(100, 116, 139); // Slate-500
-    doc.text("Car Care Studio", 14, 28);
+    const html = `<html><head><title>Quotation_${inquiry.inquiryId || "unknown"}</title>
+      <style>body{font-family:helvetica,sans-serif;padding:24px;color:#000;}
+      table{width:100%;border-collapse:collapse;margin-top:16px;}
+      th{background:#dc2626;color:#fff;padding:8px;text-align:left;border:1px solid #dc2626;}
+      @media print{body{padding:0;}}</style></head><body>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div><div style="font-size:20px;font-weight:bold;color:#dc2626;">AUTO GAMMA</div>
+          <div style="font-size:10px;color:#64748b;">Car Care Studio</div></div>
+        <div style="text-align:right;">
+          <div style="font-size:14px;font-weight:bold;">QUOTATION</div>
+          <div style="font-size:10px;">ID: ${inquiry.inquiryId || "N/A"}</div>
+          <div style="font-size:10px;">Date: ${format(new Date(inquiry.createdAt || new Date()), "MMM dd, yyyy")}</div>
+        </div>
+      </div>
+      <hr style="margin:16px 0;border-color:#e2e8f0;"/>
+      <div style="font-size:10px;"><strong>BILL TO:</strong><br/>
+        ${inquiry.customerName || "N/A"}<br/>
+        ${inquiry.phone || "N/A"}${inquiry.email ? `<br/>${inquiry.email}` : ""}
+      </div>
+      <table><thead><tr>
+        <th>Service/Item</th><th>Warranty</th><th style="text-align:right;">Base Price</th><th style="text-align:right;">Quoted Price</th>
+      </tr></thead><tbody>${tableRows}</tbody></table>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+        <div><strong>Total Quoted Price: INR ${(inquiry.customerPrice || 0).toLocaleString()}</strong></div>
+      </div>
+      ${inquiry.notes ? `<div style="margin-top:16px;"><strong>Special Notes:</strong><br/>${inquiry.notes}</div>` : ""}
+      <div style="margin-top:32px;text-align:center;font-size:9px;color:#999;">Thank you for choosing Auto Gamma!</div>
+      </body></html>`;
 
-    doc.setFontSize(14);
-    doc.setTextColor(0, 0, 0);
-    doc.text("QUOTATION", pageWidth - 14, 22, { align: "right" });
-    
-    doc.setFontSize(10);
-    doc.text(`ID: ${inquiry.inquiryId || "N/A"}`, pageWidth - 14, 28, { align: "right" });
-    doc.text(`Date: ${format(new Date(inquiry.createdAt || new Date()), "MMM dd, yyyy")}`, pageWidth - 14, 34, { align: "right" });
-
-    // Customer Info
-    doc.setDrawColor(226, 232, 240); // Slate-200
-    doc.line(14, 40, pageWidth - 14, 40);
-    
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("BILL TO:", 14, 50);
-    doc.setFont("helvetica", "normal");
-    doc.text(inquiry.customerName || "N/A", 14, 56);
-    doc.text(inquiry.phone || "N/A", 14, 61);
-    if (inquiry.email) doc.text(inquiry.email, 14, 66);
-
-    // Items Table
-    const tableData = [
-      ...(inquiry.services || []).map(s => [
-        s.serviceName + (s.vehicleType ? ` (${s.vehicleType})` : ""),
-        s.warrantyName || "-",
-        `INR ${(s.price || 0).toLocaleString()}`,
-        `INR ${(s.customerPrice ?? s.price ?? 0).toLocaleString()}`
-      ]),
-      ...(inquiry.accessories || []).map(a => [
-        a.accessoryName + ` (${a.category})`,
-        "-",
-        `INR ${(a.price || 0).toLocaleString()}`,
-        `INR ${(a.customerPrice ?? a.price ?? 0).toLocaleString()}`
-      ])
-    ];
-
-    autoTable(doc, {
-      startY: 75,
-      head: [["Service/Item", "Warranty", "Base Price", "Quoted Price"]],
-      body: tableData,
-      theme: "grid",
-      headStyles: { fillColor: [220, 38, 38], textColor: [255, 255, 255], fontStyle: "bold" },
-      styles: { fontSize: 9, cellPadding: 5 },
-      columnStyles: {
-        2: { halign: "right" },
-        3: { halign: "right" }
-      }
-    });
-
-    const finalY = (doc as any).lastAutoTable.finalY || 75;
-
-    // Totals
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    const totalLabel = "Total Quoted Price:";
-    const totalValue = `INR ${(inquiry.customerPrice || 0).toLocaleString()}`;
-    
-    // Position total label more to the left and value more to the right to avoid overlap
-    doc.text(totalLabel, pageWidth - 100, finalY + 15);
-    doc.text(totalValue, pageWidth - 14, finalY + 15, { align: "right" });
-
-    // Notes
-    if (inquiry.notes) {
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text("Special Notes:", 14, finalY + 30);
-      doc.setFont("helvetica", "normal");
-      const splitNotes = doc.splitTextToSize(inquiry.notes, pageWidth - 28);
-      doc.text(splitNotes, 14, finalY + 36);
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
     }
-
-    // Footer
-    doc.setFontSize(9);
-    doc.setTextColor(150, 150, 150);
-    doc.text("Thank you for choosing Auto Gamma!", pageWidth / 2, doc.internal.pageSize.getHeight() - 20, { align: "center" });
-
-    doc.save(`Quotation_${inquiry.inquiryId || "unknown"}.pdf`);
   };
 
   const handleSendWhatsApp = (inquiry: Inquiry) => {

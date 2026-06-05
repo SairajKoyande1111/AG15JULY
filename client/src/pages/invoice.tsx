@@ -8,7 +8,6 @@ import { format } from "date-fns";
 import { FileText, Loader2, Search, Trash2, Eye, ArrowUpDown, Printer, Send, Download, CalendarIcon, X as XIcon } from "lucide-react";
 import * as XLSX from "xlsx";
 import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -747,12 +746,13 @@ export default function InvoicePage() {
       });
 
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Invoice_${invoice.invoiceNo}.pdf`);
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`<html><head><title>Invoice_${invoice.invoiceNo}</title><style>body{margin:0;padding:0;}img{width:100%;height:auto;display:block;}@media print{body{margin:0;}}</style></head><body><img src="${imgData}" /></body></html>`);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
+      }
 
       let phoneNumber = invoice.phoneNumber.replace(/\D/g, '');
       if (phoneNumber.startsWith('0')) {

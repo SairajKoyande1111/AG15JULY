@@ -1,0 +1,1 @@
+- [Migration fixes](migration-fixes.md) — jspdf blocked by Replit security policy; date-fns v3 breaks Vite dep-scanner; both fixed by downgrade.
