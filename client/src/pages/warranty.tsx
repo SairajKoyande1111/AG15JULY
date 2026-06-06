@@ -32,6 +32,8 @@ import {
   Search,
   CalendarIcon,
   ChevronRight,
+  Pencil,
+  RotateCcw,
 } from "lucide-react";
 import { format, parseISO, addMonths, differenceInDays } from "date-fns";
 
@@ -230,6 +232,111 @@ function MarkDoneDialog({
   );
 }
 
+// ─── Edit Follow-Up Dialog ────────────────────────────────────────────────────
+
+function EditFollowUpDialog({
+  item,
+  followUp,
+  field,
+  onClose,
+}: {
+  item: WarrantyItem;
+  followUp: WarrantyFollowUp;
+  field: "checkup" | "topup";
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+
+  const initDate = field === "checkup" ? (followUp.checkupDate || todayStr()) : (followUp.topupDate || todayStr());
+  const initNotes = field === "checkup" ? (followUp.checkupNotes || "") : (followUp.topupNotes || "");
+  const initTopupResult = (followUp.topupStatus as "done" | "not_applicable") || "done";
+
+  const [doneDate, setDoneDate] = useState(initDate);
+  const [notes, setNotes] = useState(initNotes);
+  const [topupResult, setTopupResult] = useState<"done" | "not_applicable">(initTopupResult);
+
+  const mutation = useMutation({
+    mutationFn: async (patch: any) => {
+      const res = await apiRequest("PATCH", `/api/warranty-followups/${followUp.id}`, patch);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/warranty-followups"] });
+      toast({ title: "Updated successfully ✓" });
+      onClose();
+    },
+    onError: () => toast({ title: "Failed to update", variant: "destructive" }),
+  });
+
+  const handleSave = () => {
+    if (field === "checkup") {
+      mutation.mutate({ checkupStatus: "done", checkupDate: doneDate, checkupNotes: notes });
+    } else {
+      mutation.mutate({ topupStatus: topupResult, topupDate: doneDate, topupNotes: notes });
+    }
+  };
+
+  const handleRevert = () => {
+    if (field === "checkup") {
+      mutation.mutate({ checkupStatus: "pending", checkupDate: null, checkupNotes: "" });
+    } else {
+      mutation.mutate({ topupStatus: "pending", topupDate: null, topupNotes: "" });
+    }
+  };
+
+  return (
+    <div className="space-y-4 py-1">
+      <div className="bg-slate-50 border rounded-md p-3 text-sm space-y-0.5">
+        <p className="font-semibold text-slate-800">{item.customerName}</p>
+        <p className="text-xs text-muted-foreground">{item.vehicleInfo} · {item.licensePlate}</p>
+        <p className="text-xs text-primary font-medium">{item.itemName} — {item.warrantyPeriod}</p>
+      </div>
+
+      {field === "topup" && (
+        <div className="space-y-1.5">
+          <Label>Top-up Result</Label>
+          <Select value={topupResult} onValueChange={(v) => setTopupResult(v as "done" | "not_applicable")}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="done">Top-up Done ✓</SelectItem>
+              <SelectItem value="not_applicable">Not Required</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      <div className="space-y-1.5">
+        <Label>{field === "checkup" ? "Checkup Date" : "Date"}</Label>
+        <DatePickerButton value={doneDate} onChange={setDoneDate} />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Notes <span className="text-muted-foreground text-xs">(optional)</span></Label>
+        <Input placeholder="Any observations or remarks..." value={notes} onChange={e => setNotes(e.target.value)} />
+      </div>
+
+      <div className="flex items-center justify-between pt-2 border-t">
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 gap-1.5"
+          onClick={handleRevert}
+          disabled={mutation.isPending}
+          data-testid="btn-revert-status"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          Revert to Pending
+        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onClose} disabled={mutation.isPending}>Cancel</Button>
+          <Button onClick={handleSave} disabled={mutation.isPending}>
+            {mutation.isPending ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Row Component ────────────────────────────────────────────────────────────
 
 function WarrantyRow({
@@ -237,11 +344,15 @@ function WarrantyRow({
   followUp,
   onMarkCheckup,
   onMarkTopup,
+  onEditCheckup,
+  onEditTopup,
 }: {
   item: WarrantyItem;
   followUp?: WarrantyFollowUp;
   onMarkCheckup: () => void;
   onMarkTopup: () => void;
+  onEditCheckup: () => void;
+  onEditTopup: () => void;
 }) {
   const urgency = getUrgency(item.invoiceDate, item.warrantyPeriod, followUp);
   const cfg = URGENCY_CFG[urgency];
@@ -304,6 +415,14 @@ function WarrantyRow({
             <div className="flex items-center gap-1.5 text-xs text-green-700">
               <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
               <span>Checkup done {followUp?.checkupDate ? `(${fmtDate(followUp.checkupDate)})` : ""}</span>
+              <button
+                onClick={onEditCheckup}
+                className="ml-0.5 text-slate-400 hover:text-slate-600 transition-colors"
+                title="Edit checkup"
+                data-testid="btn-edit-checkup"
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
@@ -326,6 +445,14 @@ function WarrantyRow({
                 <span>
                   {followUp?.topupStatus === "not_applicable" ? "Top-up not required" : `Top-up done ${followUp?.topupDate ? `(${fmtDate(followUp.topupDate)})` : ""}`}
                 </span>
+                <button
+                  onClick={onEditTopup}
+                  className="ml-0.5 text-slate-400 hover:text-slate-600 transition-colors"
+                  title="Edit top-up"
+                  data-testid="btn-edit-topup"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
               </div>
             ) : (
               <div className="flex items-center gap-2">
@@ -354,6 +481,11 @@ export default function WarrantyPage() {
   const [markingState, setMarkingState] = useState<{
     item: WarrantyItem;
     followUp?: WarrantyFollowUp;
+    field: "checkup" | "topup";
+  } | null>(null);
+  const [editingState, setEditingState] = useState<{
+    item: WarrantyItem;
+    followUp: WarrantyFollowUp;
     field: "checkup" | "topup";
   } | null>(null);
 
@@ -542,6 +674,8 @@ export default function WarrantyPage() {
                   followUp={fu}
                   onMarkCheckup={() => setMarkingState({ item, followUp: fu, field: "checkup" })}
                   onMarkTopup={() => setMarkingState({ item, followUp: fu, field: "topup" })}
+                  onEditCheckup={() => fu && setEditingState({ item, followUp: fu, field: "checkup" })}
+                  onEditTopup={() => fu && setEditingState({ item, followUp: fu, field: "topup" })}
                 />
               );
             })}
@@ -566,6 +700,26 @@ export default function WarrantyPage() {
               followUp={markingState.followUp}
               field={markingState.field}
               onClose={() => setMarkingState(null)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Edit Follow-Up Dialog */}
+      {editingState && (
+        <Dialog open onOpenChange={() => setEditingState(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Pencil className="h-4 w-4 text-primary" />
+                {editingState.field === "checkup" ? "Edit Checkup Details" : "Edit Top-up Details"}
+              </DialogTitle>
+            </DialogHeader>
+            <EditFollowUpDialog
+              item={editingState.item}
+              followUp={editingState.followUp}
+              field={editingState.field}
+              onClose={() => setEditingState(null)}
             />
           </DialogContent>
         </Dialog>
