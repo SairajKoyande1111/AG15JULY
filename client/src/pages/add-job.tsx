@@ -2343,38 +2343,38 @@ export default function AddJobPage() {
                       )}
                       
                       <div className="border-t pt-2 mt-2 space-y-2">
-                        <div className="flex justify-between items-center text-sm font-medium">
-                          <span className="text-slate-500">Subtotal</span>
-                          <span>₹{(
-                            [...form.watch("services"), ...form.watch("ppfs"), ...form.watch("accessories")].reduce((acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)), 0) + 
+                        {(() => {
+                          const grandTotal = [...form.watch("services"), ...form.watch("ppfs"), ...form.watch("accessories")].reduce((acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)), 0) +
                             Number(form.watch("laborCharge") || 0) -
-                            Number(form.watch("discount") || 0)
-                          ).toLocaleString()}</span>
-                        </div>
-                        
-                        <div className="flex justify-between items-center text-sm font-medium text-slate-500">
-                          <span>GST ({form.watch("gst")}%)</span>
-                          <span>₹{(() => {
-                            const subtotal = [...form.watch("services"), ...form.watch("ppfs"), ...form.watch("accessories")].reduce((acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)), 0) + 
-                                            Number(form.watch("laborCharge") || 0) - 
-                                            Number(form.watch("discount") || 0);
-                            const gstRate = Number(form.watch("gst") || 0);
-                            const basePrice = subtotal / (1 + gstRate / 100);
-                            const gstAmount = subtotal - basePrice;
-                            return Math.round(gstAmount).toLocaleString();
-                          })()}</span>
-                        </div>
-                        
-                        <div className="flex justify-between items-center pt-2 border-t border-slate-200">
-                          <span className="text-base font-bold text-slate-900">Total Estimated Cost</span>
-                          <span className="text-xl font-black text-red-600">
-                            ₹{(
-                              [...form.watch("services"), ...form.watch("ppfs"), ...form.watch("accessories")].reduce((acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)), 0) + 
-                              Number(form.watch("laborCharge") || 0) - 
-                              Number(form.watch("discount") || 0)
-                            ).toLocaleString()}
-                          </span>
-                        </div>
+                            Number(form.watch("discount") || 0);
+                          const gstRate = Number(form.watch("gst") || 0);
+                          const preGstSubtotal = gstRate > 0 ? grandTotal / (1 + gstRate / 100) : grandTotal;
+                          const halfGst = Math.round((grandTotal - preGstSubtotal) / 2);
+                          return (
+                            <>
+                              <div className="flex justify-between items-center text-sm font-medium">
+                                <span className="text-slate-500">Subtotal</span>
+                                <span>₹{Math.round(preGstSubtotal).toLocaleString()}</span>
+                              </div>
+                              {gstRate > 0 && (
+                                <>
+                                  <div className="flex justify-between items-center text-sm font-medium text-slate-500">
+                                    <span>SGST ({(gstRate / 2).toFixed(2)}%)</span>
+                                    <span>₹{halfGst.toLocaleString()}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-sm font-medium text-slate-500">
+                                    <span>CGST ({(gstRate / 2).toFixed(2)}%)</span>
+                                    <span>₹{halfGst.toLocaleString()}</span>
+                                  </div>
+                                </>
+                              )}
+                              <div className="flex justify-between items-center pt-2 border-t border-slate-200">
+                                <span className="text-base font-bold text-slate-900">Total Estimated Cost</span>
+                                <span className="text-xl font-black text-red-600">₹{grandTotal.toLocaleString()}</span>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
