@@ -336,7 +336,8 @@ function PrintableInvoice({ invoice }: { invoice: Invoice }) {
 
           {(() => {
             const grandTotal = invoice.subtotal - (invoice.discount || 0);
-            const gstRate = invoice.gstPercentage ?? 0;
+            // AGNX is not GST-registered — never show GST regardless of stored value
+            const gstRate = invoice.business === "AGNX" ? 0 : (invoice.gstPercentage ?? 0);
             const preGstSubtotal = gstRate > 0 ? grandTotal / (1 + gstRate / 100) : grandTotal;
             const halfGstAmount = (grandTotal - preGstSubtotal) / 2;
 
@@ -715,7 +716,8 @@ export default function InvoicePage() {
           <div style="width: 300px; background: #f8fafc; padding: 16px; border-radius: 8px;">
             ${(() => {
               const grandTotal = invoice.subtotal - (invoice.discount || 0);
-              const gstRate = invoice.gstPercentage ?? 0;
+              // AGNX is not GST-registered — never show GST regardless of stored value
+              const gstRate = invoice.business === "AGNX" ? 0 : (invoice.gstPercentage ?? 0);
               const preGstSubtotal = gstRate > 0 ? grandTotal / (1 + gstRate / 100) : grandTotal;
               const halfGst = Math.round((grandTotal - preGstSubtotal) / 2);
               return `
