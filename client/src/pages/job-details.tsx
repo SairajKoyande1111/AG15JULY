@@ -131,13 +131,14 @@ export default function JobDetailsPage() {
 
         const businessLabor = job.laborBusiness === business ? Number(job.laborCharge || 0) : 0;
         
-        const gstPercentage = Number(job.gst || 0);
+        // Only Auto Gamma is GST-registered; AGNX invoices have no GST
+        const gstPercentage = business === "Auto Gamma" ? Number(job.gst || 0) : 0;
         const totalBeforeGst = subtotal + businessLabor - businessDiscount;
         const gstAmount = (totalBeforeGst * gstPercentage) / 100;
+        const grandTotal = totalBeforeGst + gstAmount;
 
         // For split invoices (multiple businesses), each invoice should only show
-        // a payment equal to its own Grand Total (= subtotal - discount = totalBeforeGst),
-        // not the combined job payment.
+        // a payment equal to its own Grand Total, not the combined job payment.
         let invoicePayments: { amount: number; method: string; date: string }[] = [];
         if (job.isPaid && job.payments && job.payments.length > 0) {
           if (businesses.length === 1) {
@@ -145,10 +146,10 @@ export default function JobDetailsPage() {
             invoicePayments = job.payments;
           } else {
             // Split between multiple businesses — assign each invoice a payment
-            // equal to its own displayed Grand Total (totalBeforeGst)
+            // equal to its own Grand Total (includes GST for Auto Gamma, none for AGNX)
             const firstPayment = job.payments[0];
             invoicePayments = [{
-              amount: totalBeforeGst,
+              amount: grandTotal,
               method: firstPayment.method,
               date: firstPayment.date
             }];
@@ -180,7 +181,7 @@ export default function JobDetailsPage() {
           laborCharge: businessLabor,
           gstPercentage,
           gstAmount,
-          totalAmount: invoiceTotal,
+          totalAmount: grandTotal,
           date: job.date,
           isPaid: job.isPaid,
           payments: invoicePayments
