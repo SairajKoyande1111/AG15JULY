@@ -136,43 +136,56 @@ export function HsnCombobox({
 
           {/* Add form */}
           {addingNew && (
-            <div className="px-3 py-3 border-t border-border/30 space-y-2 bg-red-50/40">
-              <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">New HSN Code</p>
-              <Input
-                ref={newCodeRef}
-                className="h-8 text-xs font-mono"
-                placeholder="HSN Code (e.g. 87089900)"
-                value={newCode}
-                onMouseDown={e => e.stopPropagation()}
-                onChange={e => setNewCode(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter") { e.preventDefault(); handleConfirmAdd(); }
-                  if (e.key === "Escape") { setAddingNew(false); setNewCode(""); setNewDescription(""); }
-                }}
-              />
-              <Input
-                className="h-8 text-xs"
-                placeholder="Description (e.g. Car Accessories)"
-                value={newDescription}
-                onMouseDown={e => e.stopPropagation()}
-                onChange={e => setNewDescription(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter") { e.preventDefault(); handleConfirmAdd(); }
-                  if (e.key === "Escape") { setAddingNew(false); setNewCode(""); setNewDescription(""); }
-                }}
-              />
-              <div className="flex gap-2">
+            <div className="px-4 py-3 border-t border-border/30 space-y-3 bg-white">
+              <p className="text-sm font-bold text-slate-800">Add New HSN Code</p>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700">
+                  HSN Code <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  ref={newCodeRef}
+                  className="h-9 text-sm font-mono"
+                  placeholder="e.g. 998713"
+                  value={newCode}
+                  onMouseDown={e => e.stopPropagation()}
+                  onChange={e => setNewCode(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") { e.preventDefault(); handleConfirmAdd(); }
+                    if (e.key === "Escape") { setAddingNew(false); setNewCode(""); setNewDescription(""); }
+                  }}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700">
+                  Description <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  className="h-9 text-sm"
+                  placeholder="e.g. PPF Installation / Ceramic Coating"
+                  value={newDescription}
+                  onMouseDown={e => e.stopPropagation()}
+                  onChange={e => setNewDescription(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") { e.preventDefault(); handleConfirmAdd(); }
+                    if (e.key === "Escape") { setAddingNew(false); setNewCode(""); setNewDescription(""); }
+                  }}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
                 <button
                   type="button"
-                  className="flex-1 bg-red-600 text-white text-xs font-semibold rounded px-2 py-1.5 hover:bg-red-700 disabled:opacity-50 transition-colors"
+                  className="flex-1 bg-red-600 text-white text-xs font-semibold rounded-md px-3 py-2 hover:bg-red-700 disabled:opacity-50 transition-colors"
                   onMouseDown={e => { e.preventDefault(); handleConfirmAdd(); }}
                   disabled={!newCode.trim() || !newDescription.trim() || addMutation.isPending}
                 >
-                  {addMutation.isPending ? "Saving..." : "Save & Select"}
+                  {addMutation.isPending ? "Saving..." : "Add HSN Code"}
                 </button>
                 <button
                   type="button"
-                  className="text-xs text-slate-500 px-2 py-1 hover:text-slate-700"
+                  className="text-xs text-slate-500 px-3 py-2 hover:text-slate-700 border border-slate-200 rounded-md"
                   onMouseDown={e => { e.preventDefault(); setAddingNew(false); setNewCode(""); setNewDescription(""); }}
                 >
                   Cancel
